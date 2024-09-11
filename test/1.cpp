@@ -10,4 +10,5 @@ int main()
     printf("0x%x", a >> 28);
 
     printf("hello git\n");
+    printf("hello git qunima\n");
 }
