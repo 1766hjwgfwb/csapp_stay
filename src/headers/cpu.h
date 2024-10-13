@@ -8,9 +8,9 @@
  * without yangminz's permission.
  */
 
-// include guards to prevent double declaration of any identifiers 
-// such as types, enums and static variables
-#ifndef CPU_GUARD
+// includetic variables guards to prevent double declaration of any identifiers 
+// such as types, enums and sta
+#ifndef CPU_GUARD 
 #define CPU_GUARD
 
 #include <stdint.h>
