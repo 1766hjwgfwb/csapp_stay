@@ -20,7 +20,7 @@ typedef enum OP {
     mov_reg_mem,
     mov_mem_reg,
     push_reg,
-     pop_reg,
+    pop_reg,
     call,
     ret,
     add_reg_reg
@@ -50,16 +50,11 @@ typedef struct OD {
 // todo 一条完整指令
 typedef struct INSTRUCT_STRUCT {
     op_t op;    // * mov or push ...
-    od_t stc;   // * 源操作数
+    od_t src;   // * 源操作数
     od_t dst;   // * 目的操作数
 
     char code[100]; // * 存储指令信息
 }inst_t;
-
-#define INST_LEN 100
-
-
-inst_t program[INST_LEN];   // * 宏定义指令集长度 100条
 
 
 
@@ -71,20 +66,24 @@ typedef void (*handler_t)(uint64_t, uint64_t);
 
 
 // 函数指针数组 存放各个"方法"
-handler_t handler_table[NUM_INSTRTYPE];
+extern handler_t handler_table[NUM_INSTRTYPE];
+
 
 void init_handler_table();
+
+void instruction_cycle();  // * 指令解析周期
 
 void mov_reg_reg_handler(uint64_t src, uint64_t dst);
 
 void add_reg_reg_handler(uint64_t src, uint64_t dst);
 
+void call_handler(uint64_t src, uint64_t dst);
+
 
 
  
-static uint64_t decode_od(od_t od);// * 译码方法 
+// static uint64_t decode_od(od_t od);// * 译码方法 
 
-void instruction_cycle();  // * 指令解析周期
 
 
 

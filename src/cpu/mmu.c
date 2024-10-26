@@ -5,7 +5,7 @@
 uint64_t va2pa(uint64_t vaddr) {
     // * 虚拟地址定位到实际地址 
     // ? 取余防止内存溢出
-    return mm[vaddr % MM_LEN];
+    return vaddr % MM_LEN;
 }
 
 

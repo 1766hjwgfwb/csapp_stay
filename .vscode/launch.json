@@ -5,7 +5,8 @@
       "name": "C/C++ Runner: Debug Session",
       "type": "cppdbg",
       "request": "launch",
-      "args": [],
+      "args": [
+      ],
       "stopAtEntry": false,
       "externalConsole": false,
       "cwd": "/csapp/debug_sg",

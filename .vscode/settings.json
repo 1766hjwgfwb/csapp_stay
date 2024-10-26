@@ -69,7 +69,11 @@
     "cstdint": "c",
     "random": "c",
     "*.tcc": "c",
-    "types.h": "c"
+    "types.h": "c",
+    "elf.h": "c",
+    "register.h": "c",
+    "stdio.h": "c",
+    "stdlib.h": "c"
   },
-  "C_Cpp.errorSquiggles": "disabled"
+  "C_Cpp.errorSquiggles": "enabled"
 }
