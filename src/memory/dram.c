@@ -47,9 +47,25 @@ void print_register() {
 
 
 void print_stack() {
-    /*int n = 10;
+    int n = 10;
 
     uint64_t *high = (uint64_t*)&mm[va2pa(reg.rsp)];
+    high = &high[n];
 
-    high = &high[n];*/
+    uint64_t rsp_start = reg.rsp + n * 8;
+
+    for (int i = 0; i < 2 * n; ++ i)
+    {
+        uint64_t *ptr = (uint64_t *)(high - i);
+        printf("0x%016lx : %16lx", rsp_start, (uint64_t)*ptr);
+
+        if (i == n)
+        {
+            printf(" <== rsp");
+        }
+
+        rsp_start = rsp_start - 8;
+
+        printf("\n");
+    }
 }

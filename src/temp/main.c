@@ -23,16 +23,8 @@ int main() {
     reg.rsp = 0x7ffffffee1f0;
 
 
-
     // * 反汇编指示 rip的指向指令结构体地址 ps: <main + 11>
     reg.rip = (uint64_t)&program[11];
-
-
-    // * run
-    for(int i = 0; i < 15; i++) {
-        print_register();
-        instruction_cycle();
-    }
 
 
     wirtebits_dram(va2pa(0x7ffffffee210), 0x8000660);   // * rbp
@@ -41,6 +33,17 @@ int main() {
     wirtebits_dram(va2pa(0x7ffffffee1f8), 0x12340000);
     wirtebits_dram(va2pa(0x7ffffffee1f0), 0x8000660);   // * rsp
 
+    // ? init value
+    print_register();
+    print_stack();
+
+    // * run
+
+    for(int i = 0; i < 15; i++) {
+        instruction_cycle();
+        print_register();
+        print_stack();   // @bug 结构体地址不符合
+    }
     /*  *((uint64_t *)(&mm[pa]))  一种强行访问内存的方式   8字节 64位 访问数组连续 64位地址 注意大小端 
         // printf("0x%lx\n", *((uint64_t* )(&mm[pa])));
     */
@@ -59,10 +62,11 @@ int main() {
     match = match && (reg.rbp == 0x7ffffffee210);
     match = match && (reg.rsp == 0x7ffffffee1f0);
 
+    printf("\n");
     if (match == 1) {
-        printf("register match\n");
+        printf("\tregister match\n");
     } else {
-        printf("register not match\n");
+        printf("\tregister not match\n");
     }
 }
 

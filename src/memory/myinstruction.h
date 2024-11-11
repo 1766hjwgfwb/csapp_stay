@@ -31,7 +31,7 @@ typedef enum OP {
 typedef enum OP_TYPE {
     EMPTY,
     IMM,REG,        // ? 立即数 -> 寄存器
-    MM_IMM,MM_REG,MM_IMM_REG,MM_REG1_REG2,MM_IMM_REG1_REG2,MM_REG1_S,MM_IMM_REG1_S,MM_REG1_REG2_S,MM_IMM_REG1_REG2_S
+    MM_IMM,MM_REG,MM_IMM_REG,MM_REG1_REG2,MM_IMM_REG1_REG2,MM_REG2_S,MM_IMM_REG2_S,MM_REG1_REG2_S,MM_IMM_REG1_REG2_S
 }od_type_t;
 
 
@@ -61,11 +61,11 @@ typedef struct INSTRUCT_STRUCT {
 // ************ mothod *************
 
 
-// 类似c++的抽象方法 定义一个函数指针
+// * 类似c++的抽象方法 定义一个函数指针
 typedef void (*handler_t)(uint64_t, uint64_t);
 
 
-// 函数指针数组 存放各个"方法"
+// * 函数指针数组 存放各个"方法"
 extern handler_t handler_table[NUM_INSTRTYPE];
 
 
@@ -73,11 +73,29 @@ void init_handler_table();
 
 void instruction_cycle();  // * 指令解析周期
 
+
+// * 处理寄存器赋值
 void mov_reg_reg_handler(uint64_t src, uint64_t dst);
+
+void mov_reg_mem_handler(uint64_t src, uint64_t dst);
+
+void mov_mem_reg_handler(uint64_t src, uint64_t dst);
 
 void add_reg_reg_handler(uint64_t src, uint64_t dst);
 
+
+
+// * 转移控制
 void call_handler(uint64_t src, uint64_t dst);
+
+void ret_handler(uint64_t src, uint64_t dst);
+
+
+
+// * 函数调用
+void push_reg_handler(uint64_t src, uint64_t dst);
+
+void pop_reg_handler(uint64_t src, uint64_t dst);
 
 
 

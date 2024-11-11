@@ -5,7 +5,7 @@
 #include"memory/myinstruction.h"
 
 
-
+reg_t reg;
 
 inst_t program[15] = {
     // * 指令执行周期
@@ -13,13 +13,13 @@ inst_t program[15] = {
         push_reg,
         {REG, 0, 0, (uint64_t* )&reg.rbp, NULL},
         {EMPTY, 0, 0, NULL, NULL},
-        "push   %rbp"
+        "push   %rbp"   // * store 上一个函数栈帧
     },
     {
         mov_reg_reg,
         {REG, 0, 0, (uint64_t* )&reg.rsp, NULL},
         {REG, 0, 0, (uint64_t* )&reg.rbp, NULL},
-        "mov    %rsp, %rbp"
+        "mov    %rsp, %rbp"     // * 将上一个函数的栈顶 设置为当前执行函数的栈底  rsp = rbp rsp = rsp - 0x10(0x8)
     },
     {
         mov_reg_mem,
@@ -31,7 +31,7 @@ inst_t program[15] = {
         mov_reg_mem,
         {REG, 0, 0, (uint64_t* )&reg.rsi, NULL},
         {MM_IMM_REG, -0x20, 0, (uint64_t* )&reg.rbp, NULL},
-        "mvo    %rsi, -0x20(%rbp)"
+        "mov    %rsi, -0x20(%rbp)"
     },
     {
         mov_mem_reg,
@@ -67,13 +67,13 @@ inst_t program[15] = {
         pop_reg,
         {REG, 0, 0, (uint64_t* )&reg.rbp, NULL},
         {EMPTY, 0, 0, NULL, NULL},
-        "pop    %rbp"
+        "pop    %rbp"   // * pop指令将
     },
     {
         ret,
         {EMPTY, 0, 0, NULL, NULL},
         {EMPTY, 0, 0, NULL, NULL},
-        "retq"
+        "retq"      // * 和callq指令搭配 返回控制权 rsp + 8 并访问 rsp内的 rip地址
     },
     {
         mov_reg_reg,
@@ -89,7 +89,8 @@ inst_t program[15] = {
     },
     {
         call,   // * 指令跳转地址 head
-        {EMPTY, 0, 0, (uint64_t)(&program[0]), NULL},
+        // {EMPTY, 0, 0, (uint64_t* )(&program[0]), NULL},
+        {IMM, (uint64_t)(&program[0]), 0, NULL, NULL},  // ? decode mothod -> call addrs value
         {EMPTY, 0, 0, NULL, NULL},
         "callq  5fa <add>"
     },

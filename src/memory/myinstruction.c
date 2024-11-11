@@ -5,9 +5,9 @@
 
 
 #include<stdio.h>
+#include "myinstruction.h"
 
 
-reg_t reg;
 handler_t handler_table[NUM_INSTRTYPE];
 
 
@@ -47,10 +47,10 @@ static uint64_t decode_od(od_t od) {
         {
             // * error wirte od.reg2 = *(od.reg1) + od.imm
             addr = *(od.reg1) + *(od.reg2) + od.imm;
-        } else if (od.type == MM_REG1_S) 
+        } else if (od.type == MM_REG2_S) 
         {
             addr = (*(od.reg1)) * od.scal;
-        } else if (od.type == MM_IMM_REG1_S) 
+        } else if (od.type == MM_IMM_REG2_S) 
         {
             addr = ((*(od.reg1)) * od.scal) + od.imm;
         } else if (od.type == MM_REG1_REG2_S) 
@@ -61,7 +61,9 @@ static uint64_t decode_od(od_t od) {
             addr = *(od.reg1) + od.imm + ((*(od.reg2)) * od.scal);
         }
 
-        return va2pa(addr);
+        // return va2pa(addr);
+
+        return addr;
     }
 }
 
@@ -86,15 +88,21 @@ void instruction_cycle() {
     handler(src, dst);
 
     
-    printf("%s\n", instr->code); 
+    printf("\n");
+    printf("\"---- %s ----\"\n", instr->code); 
 }
 
 // * 类似抽象类的派生   多态
 void init_handler_table() {
     // * 注册函数  回调？ 信号处理？
     handler_table[mov_reg_reg] = &mov_reg_reg_handler;
+    handler_table[mov_reg_mem] = &mov_reg_mem_handler;
+    handler_table[mov_mem_reg] = &mov_mem_reg_handler;
     handler_table[call] = &call_handler;
+    handler_table[ret] = &ret_handler;
     handler_table[add_reg_reg] = &add_reg_reg_handler;
+    handler_table[push_reg] = &push_reg_handler;
+    handler_table[pop_reg] = &pop_reg_handler;
 }
 
 void mov_reg_reg_handler(uint64_t src, uint64_t dst) {
@@ -106,6 +114,25 @@ void mov_reg_reg_handler(uint64_t src, uint64_t dst) {
     reg.rip = reg.rip + sizeof(inst_t);
 }
 
+void mov_reg_mem_handler(uint64_t src, uint64_t dst) {
+    // * dst 访存
+
+    // * mov %rsi, -0x20(%rbp)
+    wirtebits_dram(va2pa(dst), *(uint64_t *)src);
+
+
+    reg.rip = reg.rip + sizeof(inst_t);
+}
+
+void mov_mem_reg_handler(uint64_t src, uint64_t dst) {
+    // * src 访存
+
+
+    *(uint64_t *)dst = read64bits_dram(va2pa(src)); 
+
+    reg.rip = reg.rip + sizeof(inst_t);
+}
+
 void call_handler(uint64_t src, uint64_t dst) {
     // * rsp 
     reg.rsp = reg.rsp - 8;
@@ -114,7 +141,51 @@ void call_handler(uint64_t src, uint64_t dst) {
     // * rsp 指针内存放下一条指令的地址 return value
     wirtebits_dram(va2pa(reg.rsp), reg.rip + sizeof(inst_t));
 
-    reg.rip = src;
+    // ToDo  src : 传入的跳跃地址
+    reg.rip = src; 
+}
+
+void ret_handler(uint64_t src, uint64_t dst) {
+    // todo rsp退栈 转移控制权
+
+    reg.rip = read64bits_dram(va2pa(reg.rsp));
+
+
+    reg.rsp = reg.rsp + 8;
+
+    // 
+}
+
+void push_reg_handler(uint64_t src, uint64_t dst) {
+    // * rsp down
+    reg.rsp = reg.rsp - 8;
+
+    // * push %rax -> store rax value to rsp
+
+    /* 
+        * R[%rsp] <- R[%rsp] - 8
+        * M[R[%rsp]] <- S
+    */
+    wirtebits_dram(va2pa(reg.rsp), *(uint64_t *)src);
+    
+
+    reg.rip = reg.rip + sizeof(inst_t);
+}
+
+
+void pop_reg_handler(uint64_t src, uint64_t dst) {
+
+    /*
+        * S <- M[R[%rsp]] 
+        * R[%rsp] <- R[%rsp] + 8
+    */
+
+    // * rbp = M[R[%rsp]]
+    *(uint64_t *)src = read64bits_dram(va2pa(reg.rsp));
+
+    reg.rsp = reg.rsp + 8;
+
+    reg.rip = reg.rip + sizeof(inst_t);
 }
 
 void add_reg_reg_handler(uint64_t src, uint64_t dst) {

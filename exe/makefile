@@ -1,6 +1,7 @@
 CC = /usr/bin/gcc
 
 CFLAGS = -Wall -g -O2 -Werror -std=gnu99
+GDB_MES = -O0 -g
 
 EXE = program
 
@@ -11,7 +12,7 @@ CODE = ../src/memory/myinstruction.c ../src/disk/code.c ../src/memory/dram.c ../
 
 .PHONY: main
 main:
-	$(CC) $(CFLAGS) -I$(SRC) $(CODE) -o $(EXE)
+	$(CC) $(GDB_MES) -I$(SRC) $(CODE) -o $(EXE)
 
 
 run:
