@@ -73,7 +73,11 @@
     "elf.h": "c",
     "register.h": "c",
     "stdio.h": "c",
-    "stdlib.h": "c"
+    "stdlib.h": "c",
+    "common.h": "c",
+    "assert.h": "c",
+    "memory.h": "c",
+    "cpu.h": "c"
   },
   "C_Cpp.errorSquiggles": "enabled"
 }

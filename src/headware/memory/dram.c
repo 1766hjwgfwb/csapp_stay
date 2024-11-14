@@ -24,8 +24,6 @@ uint64_t read64bits_dram(uint64_t paddr) {
     return val;
 }
 
-
-
 void wirtebits_dram(uint64_t paddr, uint64_t data) {
     if(SRAM_CACHE_SETTING == 1)
         return;

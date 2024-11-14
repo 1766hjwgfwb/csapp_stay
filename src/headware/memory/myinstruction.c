@@ -49,10 +49,10 @@ static uint64_t decode_od(od_t od) {
             addr = *(od.reg1) + *(od.reg2) + od.imm;
         } else if (od.type == MM_REG2_S) 
         {
-            addr = (*(od.reg1)) * od.scal;
+            addr = (*(od.reg2)) * od.scal;
         } else if (od.type == MM_IMM_REG2_S) 
         {
-            addr = ((*(od.reg1)) * od.scal) + od.imm;
+            addr = ((*(od.reg2)) * od.scal) + od.imm;
         } else if (od.type == MM_REG1_REG2_S) 
         {
             addr = *(od.reg1) + ((*od.reg2) * od.scal);

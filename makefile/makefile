@@ -13,6 +13,7 @@ CODE = ../src/memory/myinstruction.c ../src/disk/code.c ../src/memory/dram.c ../
 .PHONY: main
 main:
 	$(CC) $(GDB_MES) -I$(SRC) $(CODE) -o $(EXE)
+	./$(EXE)
 
 
 run:
