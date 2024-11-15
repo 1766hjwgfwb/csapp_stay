@@ -10,6 +10,8 @@
         00 ae 02 7a
 */
 
+uint8_t pm[PHYSICAL_MEMORY_SPACE];
+
 
 // memory accessing used in instructions
 uint64_t read64bits_dram(uint64_t paddr, core_t *cr) {
@@ -30,7 +32,7 @@ uint64_t read64bits_dram(uint64_t paddr, core_t *cr) {
 
 void wirte64bits_dram(uint64_t paddr, uint64_t data, core_t *cr) {
     if (DEBUG_ENABLE_SRAM_CACHE == 1) {
-        return 0x0;
+        return;
     } else {
 
         for(int i = 0, j = 0; i < 8; i++, j += 8) {

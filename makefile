@@ -5,7 +5,7 @@ GDB_MES = -O0 -g
 
 EXE = program
 
-SRC = ../src
+SRC = ./src
 
 # CODE = ../src/disk/code.c
 # CODE = ../src/memory/myinstruction.c ../src/disk/code.c ../src/memory/dram.c ../src/cpu/mmu.c ../src/temp/main.c
@@ -22,12 +22,12 @@ COMMON = $(SRC)/common/print.c $(SRC)/common/convert.c
 # 分离编译
 
 # handware
-CPU = $(SRC)/handware/cpu/mmu.c $(SRC)/handware/cpu/isa.c
-MEMORY = $(SRC)/handware/memory/dram.c
+CPU = $(SRC)/headware/cpu/mmu.c $(SRC)/headware/cpu/isa.c
+MEMORY = $(SRC)/headware/memory/dram.c
 
 
 # main
-MAIN = $(SRC)/main_hardware.c
+MAIN = $(SRC)/main_headware.c
 
 
 

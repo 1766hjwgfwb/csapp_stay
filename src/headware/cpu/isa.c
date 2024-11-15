@@ -46,7 +46,7 @@ typedef enum OPERAND_TYPE {
 typedef struct OPERAND_STRUCT {
     od_type_t type;
 
-    uint64_t imm;
+    int64_t  imm;
     uint64_t scal;
     uint64_t reg1;
     uint64_t reg2;
@@ -116,7 +116,28 @@ static void parse_instruction(const char *str, isnt_t *inst, core_t *cr) {
 }
 
 static void parse_operand(const char *str, od_t *od, core_t *cr) {
+    // * str: assembly code string, e.g. mov %rsp, %rbp
 
+    od->type = EMPTY;
+    od->imm = 0;
+    od->scal = 0;
+    od->reg1 = 0;
+    od->reg2 = 0;
+
+    int str_len = strlen(str);
+    if (str_len == '0')
+        return;     // * empty operand string
+
+    if (str[0] == '$') {
+        // * imm
+        od->type = IMM;
+        od->imm = string2uint_range(str, 1, -1);
+    } else if (str[0] == '%') {
+        // * reg
+    } else {
+
+    }
+    
 }
 
 /* ================================= */
@@ -196,7 +217,7 @@ static void mov_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
         next_rip(cr);
         reset_cflags(cr);
         return;
-    } else if (src_od->type = MEM_IMM && dst_od->type == REG) {
+    } else if (src_od->type == MEM_IMM && dst_od->type == REG) {
         // * mov -0x20(%rbp), %rsi
         *(uint64_t *)dst = read64bits_dram(va2pa(src, cr), cr);
         next_rip(cr);
@@ -341,7 +362,7 @@ void print_stack(core_t *cr){
 
     for (int i = 0; i < 2 * n; i++) {
         uint64_t *prt = (uint64_t *)(high - i);
-        printf("0x16x : %16lx", va, (uint64_t)*prt);
+        printf("0x%16lx : %16lx", va, (uint64_t)*prt);
 
         if (i == n)
             printf(" <=== rsp");

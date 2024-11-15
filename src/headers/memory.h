@@ -23,7 +23,7 @@
 
 // * physical memory
 // * 16 physical memory pages
-uint8_t pm[PHYSICAL_MEMORY_SPACE];
+extern uint8_t pm[PHYSICAL_MEMORY_SPACE];
 
 
 

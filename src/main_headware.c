@@ -17,6 +17,8 @@ uint64_t ACTIVE_CORE;
 
 
 static void TestAddFunctionCallAndComputation();
+static void TestUintstring();
+
 
 
 // * print symbols from isa and sram
@@ -25,11 +27,34 @@ void print_stack(core_t *cr);
 
 
 int main() {
-    TestAddFunctionCallAndComputation();
+    // TestAddFunctionCallAndComputation();
+    TestUintstring();
     return 0;
 }
- 
 
+
+
+static void TestUintstring() {
+    const char*nums[12] = {
+        "0",
+        "-0",
+        "0x0",
+        "1234",
+        "0x1234",
+        "0xabcd",
+        "-0xabcd",
+        "-1234",
+        "2147483647",
+        "-2147483648",
+        "0x8000000000000000",
+        "0xffffffffffffffff",
+    };
+
+    for (int i = 0; i < 12; ++ i) {
+        printf("%s => %lx\n", nums[i], string2uint(nums[i]));
+    }
+}
+ 
 
 
 static void TestAddFunctionCallAndComputation() {
@@ -54,12 +79,11 @@ static void TestAddFunctionCallAndComputation() {
     ac->SF = 0;
     ac->OF = 0;
     
-    write64bits_dram(va2pa(0x7ffffffee110, ac), 0x0000000000000000, ac);    // * rbp
-    write64bits_dram(va2pa(0x7ffffffee108, ac), 0x0000000000000000, ac);
-    write64bits_dram(va2pa(0x7ffffffee100, ac), 0x0000000012340000, ac);
-    write64bits_dram(va2pa(0x7ffffffee0f8, ac), 0x000000000000abcd, ac);
-    write64bits_dram(va2pa(0x7ffffffee0f0, ac), 0x0000000000000000, ac);    // * rsp
-
+    wirte64bits_dram(va2pa(0x7ffffffee110, ac), 0x0000000000000000, ac);    // * rbp
+    wirte64bits_dram(va2pa(0x7ffffffee108, ac), 0x0000000000000000, ac);
+    wirte64bits_dram(va2pa(0x7ffffffee100, ac), 0x0000000012340000, ac);
+    wirte64bits_dram(va2pa(0x7ffffffee0f8, ac), 0x000000000000abcd, ac);
+    wirte64bits_dram(va2pa(0x7ffffffee0f0, ac), 0x0000000000000000, ac);    // * rsp
 
 
     char assembly[15][MAX_INSTRUCTION_CHAR] = {
