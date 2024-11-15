@@ -1,6 +1,6 @@
 CC = /usr/bin/gcc
 
-CFLAGS = -Wall -g -O2 -Werror -std=gnu99
+CFLAGS = -Wall -g -O2 -Werror -std=gnu99 -Wno-unused-function
 GDB_MES = -O0 -g
 
 EXE = program
@@ -8,16 +8,34 @@ EXE = program
 SRC = ../src
 
 # CODE = ../src/disk/code.c
-CODE = ../src/memory/myinstruction.c ../src/disk/code.c ../src/memory/dram.c ../src/cpu/mmu.c ../src/temp/main.c
+# CODE = ../src/memory/myinstruction.c ../src/disk/code.c ../src/memory/dram.c ../src/cpu/mmu.c ../src/temp/main.c
+# debug
+COMMON = $(SRC)/common/print.c $(SRC)/common/convert.c
 
-.PHONY: main
-main:
-	$(CC) $(GDB_MES) -I$(SRC) $(CODE) -o $(EXE)
+
+#.PHONY: csapp
+# main:
+#	$(CC) $(GDB_MES) -I$(SRC) $(CODE) -o $(EXE)
+#	./$(EXE)
+
+
+# 分离编译
+
+# handware
+CPU = $(SRC)/handware/cpu/mmu.c $(SRC)/handware/cpu/isa.c
+MEMORY = $(SRC)/handware/memory/dram.c
+
+
+# main
+MAIN = $(SRC)/main_hardware.c
+
+
+
+.PHONY:csapp
+csapp:
+	$(CC) $(CFLAGS) -I$(SRC) $(COMMON) $(CPU) $(MEMORY) $(MAIN) -o $(EXE)
 	./$(EXE)
 
-
-run:
-	./$(EXE)
 
 clean:
 	rm -f $(EXE)

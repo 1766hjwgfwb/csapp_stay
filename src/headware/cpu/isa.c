@@ -190,26 +190,96 @@ static void mov_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
         next_rip(cr);
         reset_cflags(cr);
         return;    
+    } else if (src_od->type == REG && dst_od->type == MEM_IMM) {
+        // * mov %rsi, -0x20(%rbp)
+        wirte64bits_dram(va2pa(dst, cr), *(uint64_t *)src, cr);
+        next_rip(cr);
+        reset_cflags(cr);
+        return;
+    } else if (src_od->type = MEM_IMM && dst_od->type == REG) {
+        // * mov -0x20(%rbp), %rsi
+        *(uint64_t *)dst = read64bits_dram(va2pa(src, cr), cr);
+        next_rip(cr);
+        reset_cflags(cr);
+        return;
+    } else if (src_od->type == IMM && dst_od->type == REG) {
+        // * mov 0x20, %rbp
+        *(uint64_t *)dst = src;
+        next_rip(cr);
+        reset_cflags(cr);
+        return;
     }
 }
 
 static void push_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
-    
+    uint64_t src = decode_operand(src_od);
+    // * don't need dst
+
+    // * e.g push %rbp
+    if (src_od->type == REG) {
+        cr->reg.rsp = cr->reg.rsp - 8;
+        wirte64bits_dram(va2pa(cr->reg.rsp, cr), *(uint64_t *)src, cr);
+
+        next_rip(cr);
+        reset_cflags(cr);
+        return;
+    }
 }
 
 static void pop_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    uint64_t src = decode_operand(src_od);
+
+    // * pop %rbx
+    if (src_od->type == REG) {
+        uint64_t val = read64bits_dram(va2pa(src, cr), cr);
+        cr->reg.rsp = cr->reg.rsp + 8;
+
+        *(uint64_t *)src = val;
+        next_rip(cr);
+        reset_cflags(cr);
+        return;
+    }
 }
 
 static void leave_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+
 }
 
 static void call_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    uint64_t src = decode_operand(src_od);
+
+
+    // * call 0xxxx/function addres
+    cr->reg.rsp = cr->reg.rsp - 8;
+
+    wirte64bits_dram(va2pa(cr->reg.rsp, cr), cr->rip + sizeof(char) * MAX_INSTRUCTION_CHAR, cr);
+
+    cr->rip = src;
+    reset_cflags(cr);
 }
 
 static void ret_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    uint64_t ret_addr = read64bits_dram(va2pa(cr->reg.rsp, cr), cr);
+
+    cr->reg.rsp = cr->reg.rsp + 8;
+
+    cr->rip = ret_addr;
+    reset_cflags(cr);
 }
 
 static void add_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    // * add src, dst
+    uint64_t src = decode_operand(src_od);
+    uint64_t dst = decode_operand(dst_od);
+
+    if (src_od->type == REG && dst_od->type == REG) {
+        uint64_t val = *(uint64_t *)src + *(uint64_t *)dst;
+
+        // ?
+        *(uint64_t *)dst = val;
+        next_rip(cr);
+        return;
+    }
 }
 
 static void sub_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
@@ -222,4 +292,61 @@ static void jne_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
 }
 
 static void jmp_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+}
+
+
+// * @brief
+// * 指令周期在cpu中实现
+// * 外部接口
+void instruction_cycle(core_t *cr) {
+
+    // * get and print rip addres
+    const char *inst_str = (const char *)cr->rip;
+    debug_printf(DEBUG_INSTRUCTIONCYCLE, "%lx   %s\n", cr->rip, inst_str);
+
+    // * 形参 isnt 带出信息
+    isnt_t inst;
+    parse_instruction(inst_str, &inst, cr);
+
+
+    // * callback
+    handler_t handler = handler_table[inst.op_t];
+
+    handler(&inst.src, &inst.dst, cr);
+}
+
+void print_register(core_t *cr) {
+    if ((DEBUG_VERBOSE_SET & DEBUG_REGISTERS) == 0x0)
+        return;
+
+    reg_t reg = cr->reg;
+
+    printf("rax = 0x%lx\trbx = 0x%lx\trcx = 0x%lx\trdx = 0x%lx\n", reg.rax, reg.rbx, reg.rcx, reg.rdx);
+    printf("rsi = 0x%lx\trdi = 0x%lx\trbp = 0x%lx\trsp = 0x%lx\n", reg.rsi, reg.rdi, reg.rbp, reg.rsp);
+    printf("rip = 0x%lx\n", cr->rip);
+    printf("CF = %u\tZF = %u\tSF = %u\tOF = %u\n",
+        cr->CF, cr->ZF, cr->SF, cr->OF);
+    printf("\n");
+}
+
+void print_stack(core_t *cr){
+    if ((DEBUG_VERBOSE_SET & DEBUG_PRINTSTACK) == 0x0)
+        return;
+
+    int n = 10;
+    uint64_t *high = (uint64_t*)&pm[va2pa(cr->reg.rsp, cr)];
+
+    high = &high[n];    // 向上增长 （10 * 8）bits 0x50
+    uint64_t va = cr->reg.rsp + n * 8;
+
+    for (int i = 0; i < 2 * n; i++) {
+        uint64_t *prt = (uint64_t *)(high - i);
+        printf("0x16x : %16lx", va, (uint64_t)*prt);
+
+        if (i == n)
+            printf(" <=== rsp");
+
+        printf("\n");
+        va -=8;
+    }
 }

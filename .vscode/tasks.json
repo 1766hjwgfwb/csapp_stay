@@ -10,8 +10,6 @@
                 "${file}",
                 "-I",
                 "/csapp/src",
-                "/csapp/src/memory/myinstruction.c",
-                "/csapp/src/disk/code.c",
                 "/csapp/src/memory/dram.c",
                 "/csapp/src/cpu/mmu.c",
                 "-o",
