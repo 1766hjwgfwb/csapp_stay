@@ -1,7 +1,7 @@
 CC = /usr/bin/gcc
 
 CFLAGS = -Wall -g -O2 -Werror -std=gnu99 -Wno-unused-function
-GDB_MES = -O0 -g
+GDB_MES = -O0 -g -std=gnu99 -Wno-unused-function
 
 EXE = program
 

@@ -17,6 +17,7 @@ uint64_t string2uint(const char* str) {
 }
 
 // * @brief DFA
+// * 有限状态机
 uint64_t string2uint_range(const char* str, int start, int end) {
     // start: starting index inclusive
     // end: ending index includsive

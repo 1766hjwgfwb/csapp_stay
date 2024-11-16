@@ -6,5 +6,7 @@
 
 
 int main() {
-    printf("%ld\n", strlen("hello"));
+    char s[20]= {'\0'};
+
+    printf("%ld\n", strlen(s));
 }

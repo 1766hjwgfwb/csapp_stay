@@ -1,1 +1,6 @@
 /.vscode
+/program*
+/Lab
+/src/temp
+.md
+!README.md

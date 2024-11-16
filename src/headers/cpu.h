@@ -189,20 +189,6 @@ typedef struct REGISTER_STRUCT {
 
 
 
-/*=======================*/
-// !     cpu core
-/*====================== */
-
-typedef struct CORE_STRUCT {
-
-    // * program counter(pc) or instruction pointer
-    union {
-        uint64_t rip;
-        uint32_t eip;
-    };
-
-
-
     /* integer arithmetic instructions
         inc     increment 1
         dec     decrement 1
@@ -227,16 +213,36 @@ typedef struct CORE_STRUCT {
         test    test
     */
 
-    // * 条件转移语句标志位
+// * 4 flags is a uint64_t
+typedef struct CPU_FLAGS_STRUCT {
+    union {
+        uint64_t __cpu_flag_value;
 
-    uint32_t CF;
+        // * 4*16 = 64 bits
+        struct {
+            uint16_t CF;
+            uint16_t ZF;
+            uint16_t SF;
+            uint16_t OF;
+        };
+    };
+}cpu_flag_t;
 
-    uint32_t ZF;
 
-    uint32_t SF;
 
-    uint32_t OF;
+/*=======================*/
+// !     cpu core
+/*====================== */
 
+typedef struct CORE_STRUCT {
+
+    // * program counter(pc) or instruction pointer
+    union {
+        uint64_t rip;
+        uint32_t eip;
+    };
+
+    cpu_flag_t flags;
 
     // * reg files
     reg_t reg;
