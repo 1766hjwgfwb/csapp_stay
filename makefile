@@ -27,7 +27,7 @@ MEMORY = $(SRC)/headware/memory/dram.c
 
 
 # main
-MAIN = $(SRC)/main_headware.c
+MAIN = $(SRC)/tests/test_headware.c
 
 
 

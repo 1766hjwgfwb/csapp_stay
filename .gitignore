@@ -1,6 +1,8 @@
-/.vscode
-/program*
-/Lab
-/src/temp
-.md
+.vscode
+program*
+Lab
+src/temp
+*.md
 !README.md
+recommend*
+build

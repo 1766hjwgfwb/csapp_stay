@@ -1,3 +1,9 @@
+/* BCST - Introduction to Computer Systems
+ * Author:      hjwgfwb@gmail.com
+ * Github:      https://github.com/1766hjwgfwb/csapp_stay
+ * This project is to learn csapp simulator project of yangminz(QEMU)
+ */
+
 // * double declaration of any identifiers
 // * such as types, enums and static var
 #ifndef DEBUG_GUARD
@@ -17,7 +23,7 @@
 #define DEBUG_LOADER                0X80
 #define DEBUG_PARSEINST             0X100
 
-#define DEBUG_VERBOSE_SET          0X1
+#define DEBUG_VERBOSE_SET          0X7
 
 
 #define DEBUG_ENABLE_PAGE_CACHE     0

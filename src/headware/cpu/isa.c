@@ -1,3 +1,9 @@
+/* BCST - Introduction to Computer Systems
+ * Author:      hjwgfwb@gmail.com
+ * Github:      https://github.com/1766hjwgfwb/csapp_stay
+ * This project is to learn csapp simulator project of yangminz(QEMU)
+ */
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -134,7 +140,7 @@ static const char *reg_name_list[72] = {
     "%r15","%r15d","%r15w","%r15b",
 };
 
-static uint64_t reflact_register(const char *str, core_t *cr) {
+static uint64_t reflact_register(const char *reg_name, core_t *cr) {
 
     // * lookup table
     reg_t *reg = &(cr->reg);
@@ -159,88 +165,176 @@ static uint64_t reflact_register(const char *str, core_t *cr) {
 
     // ? 暴力匹配地址
     for (int i = 0; i < 72; i++)
-        if (strcmp(str, reg_name_list[i]) == 0)
+        if (strcmp(reg_name, reg_name_list[i]) == 0)
             return reg_addr[i];
 
     // @bug
-    printf("reg match error");
+    // printf("reg match error");
+    debug_printf(DEBUG_PARSEINST, "parse operand %s\ncannot parse register\n", reg_name);
     exit(0);
 }
 
 static void parse_instruction(const char *str, isnt_t *inst, core_t *cr) {
+    
 
+    char op_str[64] = {'\0'};
+    int op_len = 0;
+    char src_str[64] = {'\0'};
+    int src_len = 0;
+    char dst_str[64] = {'\0'};
+    int dst_len = 0;
+
+    char c;
+    int count_parent = 0;   // * ()
+    int state = 0;
+    
+    for (int i = 0; i <strlen(str); i++) {
+        // * 逐字符解析
+        c = str[i];
+        if (c == '(' || c == ')') {
+            count_parent++;
+        }
+        
+        if (state == 0 && c != ' ') {
+            state = 1;
+        } else if (state == 1 && c == ' ') {
+            state = 2;
+            continue;
+        } else if (state == 2 && c != ' ') {
+            state = 3;
+        } else if (state == 3 && c == ',' && (count_parent == 0 || count_parent == 2)) {
+            state = 4;
+            continue;
+        } else if (state == 4 && c != ' ' && c != ',') {
+            state = 5;
+        } else if (state == 5 && c == ' ') {
+            state = 6;
+            continue;
+        }
+
+
+        if (state == 1) {
+            op_str[op_len] = c;
+            op_len ++;
+            continue;
+        } else if (state == 3) {
+            src_str[src_len] = c;
+            src_len ++;
+            continue;
+        } else if (state == 5) {
+            dst_str[dst_len] = c;
+            dst_len ++;
+            continue;
+        }
+
+    }
+
+     // op_str, src_str, dst_str
+    // strlen(str)
+    parse_operand(src_str, &(inst->src), cr);
+    parse_operand(dst_str, &(inst->dst), cr);
+
+    // * 未考虑实际汇编代码操作数 e.g. lea and xmm reg (punpcklqdq, movdqa)
+    if (strcmp(op_str, "mov") == 0 || strcmp(op_str, "movq") == 0) {
+        inst->op_t = INST_MOV;
+    } else if (strcmp(op_str, "push") == 0) {
+        inst->op_t = INST_PUSH;
+    } else if (strcmp(op_str, "pop") == 0) {
+        inst->op_t = INST_POP;
+    } else if (strcmp(op_str, "leaveq") == 0) {
+        inst->op_t = INST_LEAVE;
+    } else if (strcmp(op_str, "callq") == 0) {
+        inst->op_t = INST_CALL;
+    } else if (strcmp(op_str, "retq") == 0) {
+        inst->op_t = INST_RET;
+    } else if (strcmp(op_str, "add") == 0) {
+        inst->op_t = INST_ADD;
+    } else if (strcmp(op_str, "sub") == 0) {
+        inst->op_t = INST_SUB;
+    } else if (strcmp(op_str, "cmpq") == 0) {
+        inst->op_t = INST_CMP;
+    } else if (strcmp(op_str, "jne") == 0) {
+        inst->op_t = INST_JNE;
+    } else if (strcmp(op_str, "jmp") == 0) {
+        inst->op_t = INST_JMP;
+    }
+
+
+
+    debug_printf(DEBUG_PARSEINST, "[%s (%d)] [%s (%d)] [%s (%d)]\n", op_str, inst->op_t, src_str, inst->src.type, dst_str, inst->dst.type);
 }
 
+// * @brief operand 
+// * 函数解析内存访问 11种格式
+// * 应当注意类似 mov %rsp, %rbp 会被拆分为 od, od 
 static void parse_operand(const char *str, od_t *od, core_t *cr) {
-    // * str: assembly code string, e.g. mov %rsp, %rbp
+    // * str: assembly code string, e.g. %rsp
 
     od->type = EMPTY;
     od->imm = 0;
     od->scal = 0;
     od->reg1 = 0;
-    od->reg2 = 0;
+    od->reg2 = 0; 
 
     int str_len = strlen(str);
-    if (str_len == '0')
+    if (str_len == 0)
         return;     // * empty operand string
 
     if (str[0] == '$') {
         // * imm
         od->type = IMM;
         od->imm = string2uint_range(str, 1, -1);
-        return;
+        return;     // ? return
     } else if (str[0] == '%') {
         // * reg
         od->type = REG;
+        // * match reg name
         od->reg1 = reflact_register(str, cr);
         return;
     } else {
         // *  memory access
+        // * set char buffer
         char imm[64] = {'\0'};
         int imm_len = 0;
-        char reg1[64] = {'\0'};
+        char reg1[8] = {'\0'};
         int reg1_len = 0;
-        char reg2[64] = {'\0'};
+        char reg2[8] = {'\0'};
         int reg2_len = 0;
-        char scal[64] = {'\0'};
+        char scal[2] = {'\0'};
         int scal_len = 0;
 
-        int ca = 0;     // ()
-        int cb = 0;     // comma ,
+        int count_parent = 0;     // ()
+        int count_comma = 0;     // comma ,
 
         for (int i = 0; i < str_len; i++) {
             char c = str[i];
+
             if ( c == '(' || c == ')') {
-                ca++;   // '()'
-                continue;
+                count_parent++;   // '()'
             }
             else if (c == ',') {
-                cb++;   // ','
-                continue;
+                count_comma++;   // ','
             } else {
                 // * parse imm(reg1,reg2,scal)
-                if (ca == 0) {
+                if (count_parent == 0) {
                     // * 把字符存放 len++  xxx
                     imm[imm_len] = c;
                     imm_len++;
-                    continue;
-                } else if (ca == 1) {
+                } else if (count_parent == 1) {
                     // * maybe ???(, xxx)
-                    if (cb == 0) {
+                    if (count_comma == 0) {
                         // * ???(xxx)
                         // * (xxxx)
                         reg1[reg1_len] = c;
                         reg1_len++;
-                        continue;
-                    } else if (cb == 1) {
+                    } else if (count_comma == 1) {
                         // ???(,xxx)
                         // (???, xxx)
                         // (, xxx)
                         // ???(, xxx)
                         reg2[reg2_len] = c; 
                         reg2_len++;
-                        continue;
-                    } else if (cb == 2) {
+                    } else if (count_comma == 2) {
                         // * ???(???, ???, scal)
                         scal[scal_len] = c;
                         scal_len++;
@@ -253,8 +347,8 @@ static void parse_operand(const char *str, od_t *od, core_t *cr) {
         if (imm_len > 0) {
             od->imm = string2uint(imm);
 
-            if (ca == 0) {
-                // no ()
+            if (count_parent == 0) {
+                // * no ()      e.g. "0xxxx" 
                 od->type = MEM_IMM;
                 return;
             }
@@ -263,8 +357,9 @@ static void parse_operand(const char *str, od_t *od, core_t *cr) {
         // * Scal
         if (scal_len > 0) {
             od->scal = string2uint(scal);
-            if ((od->scal & 0xF) == 0) {
-                printf("scal error\n");
+            if (od->scal != 0x1 && od->scal != 0x2 && od->scal != 0x4 && od->scal != 0x8) {
+                // printf("scal error\n");
+                debug_printf(DEBUG_PARSEINST, "parse operand is -> %s\nscal is 1/2/4/8\n", str);
                 exit(0);
             }
         }
@@ -280,8 +375,8 @@ static void parse_operand(const char *str, od_t *od, core_t *cr) {
         }
 
 
-        // 
-        if (cb == 0) {
+        // * 判断 ','
+        if (count_comma == 0) {
             if (imm_len > 0) {
                 od->type = MEM_IMM_REG1;
                 return;
@@ -289,7 +384,7 @@ static void parse_operand(const char *str, od_t *od, core_t *cr) {
                 od->type = MEM_REG1;
                 return;
             }
-        } else if (cb == 1) {
+        } else if (count_comma == 1) {
             if (imm_len > 0) {
                 od->type = MEM_IMM_REG1_REG2;
                 return;
@@ -297,26 +392,28 @@ static void parse_operand(const char *str, od_t *od, core_t *cr) {
                 od->type = MEM_REG1_REG2;
                 return;
             }
-        } else if (cb == 2) {
-            if (imm_len > 0) {
-                od->type = MEM_IMM_REG1_REG2_SCAL;
-                return;
+        } else if (count_comma == 2) {
+            if (reg1_len > 0) {
+                // * reg1存在
+                if (imm_len > 0) {
+                    od->type = MEM_IMM_REG1_REG2_SCAL;
+                    return;
+                } else {
+                    od->type = MEM_REG1_REG2_SCAL;
+                    return;
+                }
             } else {
-                od->type = MEM_REG1_REG2_SCAL;
-                return;
-            }
-        } else {
-            // no reg
+            // no reg1
             if (imm_len > 0) {
-                od->type = MEM_IMM_REG2_SCAL;
-                return;
+                    od->type = MEM_IMM_REG2_SCAL;
+                    return;
             } else {
-                od->type = MEM_REG2_SCAL;
-                return;
-            }
+                    od->type = MEM_REG2_SCAL;
+                    return;
+                }
+            } 
         }
     }
-    
 }
 
 /* ================================= */
@@ -512,6 +609,9 @@ void instruction_cycle(core_t *cr) {
     // * get and print rip addres
     const char *inst_str = (const char *)cr->rip;
     debug_printf(DEBUG_INSTRUCTIONCYCLE, "%lx   %s\n", cr->rip, inst_str);
+
+    // printf("isnt_srt:    %c\n", *(const char *)(cr->rip));
+    // printf("%p\n", &cr->rip);
 
     // * 形参 isnt 带出信息
     isnt_t inst;

@@ -4,5 +4,4 @@
 # 冯诺依曼体系
 
 
-# 解决文件权限不够
-- sudo chown -R username /path/to/working/directory
+# ISA指令架构模拟器(QEMU)

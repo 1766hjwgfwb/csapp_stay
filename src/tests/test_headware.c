@@ -1,3 +1,9 @@
+/* BCST - Introduction to Computer Systems
+ * Author:      hjwgfwb@gmail.com
+ * Github:      https://github.com/1766hjwgfwb/csapp_stay
+ * This project is to learn csapp simulator project of yangminz(QEMU)
+ */
+
 #include<stdio.h>
 #include<string.h>
 #include<headers/cpu.h>
@@ -30,9 +36,9 @@ void TestParsingOperand();
 
 
 int main() {
-    // TestAddFunctionCallAndComputation();
+    TestAddFunctionCallAndComputation();
     // TestUintstring();
-    TestParsingOperand();
+    // TestParsingOperand();
 
     return 0;
 }
@@ -74,7 +80,7 @@ static void TestAddFunctionCallAndComputation() {
     ac->reg.rbx = 0x8000670;
     ac->reg.rcx = 0x8000670;
     ac->reg.rdx = 0x12340000;
-    ac->reg.rsi = 0x7ffffffee208;
+    ac->reg.rsi = 0x7ffffffee108;
     ac->reg.rdi = 0x1;
     ac->reg.rbp = 0x7ffffffee110;
     ac->reg.rsp = 0x7ffffffee0f0;
@@ -111,7 +117,7 @@ static void TestAddFunctionCallAndComputation() {
 
     ac->rip = (uint64_t)&assembly[11];
 
-    // * 打印第一条指令运行时地址
+    // * 录入第一条指令运行时地址
     sprintf(assembly[13], "callq $%p", &assembly[0]);
 
     printf("\n");
