@@ -188,7 +188,9 @@ typedef struct REGISTER_STRUCT {
         uint16_t r15w;
         uint8_t  r15b;
     };    
-}reg_t;
+}cpu_reg_t;
+
+extern cpu_reg_t cpu_reg;
 
 // * extern reg_t reg;      由内核封装 core_struct   
 
@@ -222,7 +224,7 @@ typedef struct REGISTER_STRUCT {
 // * 4 flags is a uint64_t
 typedef struct CPU_FLAGS_STRUCT {
     union {
-        uint64_t __cpu_flag_value;
+        uint64_t flag_value;
 
         // * 4*16 = 64 bits
         struct {
@@ -236,15 +238,15 @@ typedef struct CPU_FLAGS_STRUCT {
             uint16_t OF;
         };
     };
-}cpu_flag_t;
+}cpu_flags_t;
 
-
+extern cpu_flags_t cpu_flags;
 
 /*=======================*/
-// !     cpu core
+// !     cpu core (only one core) 
 /*====================== */
 
-typedef struct CORE_STRUCT {
+/* typedef struct CORE_STRUCT {
 
     // * program counter(pc) or instruction pointer
     union {
@@ -260,13 +262,22 @@ typedef struct CORE_STRUCT {
     // uint64_t pdbr;
 }core_t;
 
+*/
+typedef union PROGRAM_COUNTER_UNION {
+    uint64_t rip;
+
+    uint64_t eip;
+}cpu_pc_t;
+
+extern cpu_pc_t cpu_pc;
+
 
 // * define cpu core array
-#define NUM_CORES            1
+// #define NUM_CORES            1
 
-extern core_t cores[NUM_CORES];    // 内核数组
+// extern core_t cores[NUM_CORES];    // 内核数组
 
-extern uint64_t ACTIVE_CORE;
+// extern uint64_t ACTIVE_CORE;
 
 
 #define MAX_INSTRUCTION_CHAR 64
@@ -274,10 +285,10 @@ extern uint64_t ACTIVE_CORE;
 
 
 // TODO CPU exe cycle
-void instruction_cycle(core_t *cr);
+void instruction_cycle();
 
 
 // * mmu function
-uint64_t va2pa(uint64_t vaddr, core_t *cr);
+uint64_t va2pa(uint64_t vaddr);
 
 #endif

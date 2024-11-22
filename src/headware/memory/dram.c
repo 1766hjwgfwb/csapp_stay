@@ -22,7 +22,7 @@ uint8_t pm[PHYSICAL_MEMORY_SPACE];
 
 
 // memory accessing used in instructions
-uint64_t read64bits_dram(uint64_t paddr, core_t *cr) {
+uint64_t read64bits_dram(uint64_t paddr) {
     if (DEBUG_ENABLE_SRAM_CACHE == 1) {
         // * try to load uint64_t from SRAM cache
         return 0x0;
@@ -38,7 +38,7 @@ uint64_t read64bits_dram(uint64_t paddr, core_t *cr) {
     }
 }
 
-void write64bits_dram(uint64_t paddr, uint64_t data, core_t *cr) {
+void write64bits_dram(uint64_t paddr, uint64_t data) {
     if (DEBUG_ENABLE_SRAM_CACHE == 1) {
         return;
     } else {
@@ -50,14 +50,14 @@ void write64bits_dram(uint64_t paddr, uint64_t data, core_t *cr) {
     }
 }
 
-void readinst_dram(uint64_t paddr, char *buf, core_t *cr) {
+void readinst_dram(uint64_t paddr, char *buf) {
 
     // 类似 dram的读内存
     for (int i = 0; i < MAX_INSTRUCTION_CHAR; i++) 
         buf[i] = (char)pm[paddr + i];
 }
 
-void writeinst_dram(uint64_t paddr, const char *str, core_t *cr) {
+void writeinst_dram(uint64_t paddr, const char *str) {
 
     // dram 的写内存 多余位用 0填充
     int len = strlen(str);

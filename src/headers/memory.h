@@ -41,9 +41,14 @@ extern uint8_t pm[PHYSICAL_MEMORY_SPACE];
 
 // * @brief 模拟器中的寄存器均为模拟(虚拟)地址  寻址操作使用 va2pa + 偏移量赋予物理地址 pm[paddrs]
 // * I/O
-uint64_t read64bits_dram(uint64_t paddr, core_t *cr);
+uint64_t read64bits_dram(uint64_t paddr);
 
-void write64bits_dram(uint64_t paddr, uint64_t data, core_t *cr);
+void write64bits_dram(uint64_t paddr, uint64_t data);
+
+
+// * ldd " code segment " to physics memory
+void readinst_dram(uint64_t paddr, char *buf);
+void writeinst_dram(uint64_t paddr, const char *str);
 
 
 
