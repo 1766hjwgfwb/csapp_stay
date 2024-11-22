@@ -113,14 +113,21 @@ static void TestAddFunctionCallAndComputation() {
         "retq",                     // 10
         "mov    %rdx,%rsi",         // 11
         "mov    %rax,%rdi",         // 12
-        "callq  0",                 // 13
+        "callq  0x00400000",        // 13
         "mov    %rax,-0x8(%rbp)",   // 14
     };
 
+    /*
     ac->rip = (uint64_t)&assembly[11];
-
     // * 录入第一条指令运行时地址
     sprintf(assembly[13], "callq $%p", &assembly[0]);
+    */
+    for (int i = 0; i < 15; i++) {
+        // * max_inst_char 64 = 0x40
+        writeinst_dram(va2pa(i * 0x40 + 0x00400000, ac), assembly[i], ac);
+    }
+
+    ac->rip = MAX_INSTRUCTION_CHAR * sizeof(char) * 11 + 0x00400000;
 
     printf("\n");
 

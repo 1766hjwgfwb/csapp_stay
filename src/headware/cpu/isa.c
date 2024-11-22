@@ -542,7 +542,9 @@ static void pop_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
 
     // * pop %rbx
     if (src_od->type == REG) {
-        uint64_t val = read64bits_dram(va2pa(src, cr), cr);
+        uint64_t val = read64bits_dram(va2pa(cr->reg.rsp, cr), cr);
+        // * pop push 约定 8字节对齐
+        // * 如果函数分配了额外的栈空间,类似 `sub $0x10, rsp`,在 `pop`前要自己手动释放 `add $0x10, rsp`
         cr->reg.rsp = cr->reg.rsp + 8;
 
         *(uint64_t *)src = val;
