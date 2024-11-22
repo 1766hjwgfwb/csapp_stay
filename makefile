@@ -9,8 +9,6 @@ SRC = ./src
 
 # CODE = ../src/disk/code.c
 # CODE = ../src/memory/myinstruction.c ../src/disk/code.c ../src/memory/dram.c ../src/cpu/mmu.c ../src/temp/main.c
-# debug
-COMMON = $(SRC)/common/print.c $(SRC)/common/convert.c
 
 
 #.PHONY: csapp
@@ -19,7 +17,11 @@ COMMON = $(SRC)/common/print.c $(SRC)/common/convert.c
 #	./$(EXE)
 
 
-# 分离编译
+######################### 分离编译 ####################################
+
+# debug
+COMMON = $(SRC)/common/print.c $(SRC)/common/convert.c
+
 
 # handware
 CPU = $(SRC)/headware/cpu/mmu.c $(SRC)/headware/cpu/isa.c

@@ -226,9 +226,13 @@ typedef struct CPU_FLAGS_STRUCT {
 
         // * 4*16 = 64 bits
         struct {
+            // uint_t overflow
             uint16_t CF;
+            // expression zero value                
             uint16_t ZF;
+            // neg
             uint16_t SF;
+            // int_t overflow 
             uint16_t OF;
         };
     };

@@ -7,6 +7,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<assert.h>
 #include<headers/cpu.h>
 #include<headers/memory.h>
 #include<headers/common.h>
@@ -86,7 +87,7 @@ static uint64_t decode_operand(od_t *od) {
     if (od->type == IMM)
         return *(uint64_t *)&od->imm;   // imm maybe is a negative
     else if (od->type == REG)
-        return od->reg1;    // default reg1
+        return od->reg1;    // default reg1     note: od.reg1 is a &reg, need *(ui64_t *)
     else if (od->type == EMPTY)
         return 0x0;
     else {
@@ -140,6 +141,8 @@ static const char *reg_name_list[72] = {
     "%r15","%r15d","%r15w","%r15b",
 };
 
+
+// * @brief return &reg, so reg1/reg2 = &reg.rax/xxx 
 static uint64_t reflact_register(const char *reg_name, core_t *cr) {
 
     // * lookup table
@@ -176,7 +179,7 @@ static uint64_t reflact_register(const char *reg_name, core_t *cr) {
 
 static void parse_instruction(const char *str, isnt_t *inst, core_t *cr) {
     
-
+    // * 状态机解析
     char op_str[64] = {'\0'};
     int op_len = 0;
     char src_str[64] = {'\0'};
@@ -229,12 +232,15 @@ static void parse_instruction(const char *str, isnt_t *inst, core_t *cr) {
 
     }
 
-     // op_str, src_str, dst_str
+    // op_str, src_str, dst_str
     // strlen(str)
+    // * 待实现: 用字典树来构建
     parse_operand(src_str, &(inst->src), cr);
     parse_operand(dst_str, &(inst->dst), cr);
 
     // * 未考虑实际汇编代码操作数 e.g. lea and xmm reg (punpcklqdq, movdqa)
+    // * movq 'q'为操作数 8字节大小指示
+    // * movdqa 'dqa'指示 xmm 浮点数寄存器
     if (strcmp(op_str, "mov") == 0 || strcmp(op_str, "movq") == 0) {
         inst->op_t = INST_MOV;
     } else if (strcmp(op_str, "push") == 0) {
@@ -474,8 +480,8 @@ static inline void next_rip(core_t *cr) {
 }
 
 
-// instruction handlers
-
+// * instruction handlers
+// * 将寄存器和内存统一为地址和数据的组合，通过解引用实现对数据的读写操作
 static void mov_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
     uint64_t src = decode_operand(src_od);
     uint64_t dst = decode_operand(dst_od);
@@ -488,14 +494,14 @@ static void mov_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
         // reset_cflags(cr);
         cr->flags.__cpu_flag_value = 0;
         return;    
-    } else if (src_od->type == REG && dst_od->type == MEM_IMM) {
+    } else if (src_od->type == REG && dst_od->type == MEM_IMM_REG1) {
         // * mov %rsi, -0x20(%rbp)
-        wirte64bits_dram(va2pa(dst, cr), *(uint64_t *)src, cr);
+        write64bits_dram(va2pa(dst, cr), *(uint64_t *)src, cr);
         next_rip(cr);
         // reset_cflags(cr);
         cr->flags.__cpu_flag_value = 0;
         return;
-    } else if (src_od->type == MEM_IMM && dst_od->type == REG) {
+    } else if (src_od->type == MEM_IMM_REG1 && dst_od->type == REG) {
         // * mov -0x20(%rbp), %rsi
         *(uint64_t *)dst = read64bits_dram(va2pa(src, cr), cr);
         next_rip(cr);
@@ -504,6 +510,9 @@ static void mov_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
         return;
     } else if (src_od->type == IMM && dst_od->type == REG) {
         // * mov 0x20, %rbp
+        // todo note: dst = src
+        // * 当类型为 REG 时返回的是`&cr->reg.xxx`,而不是值,在 `decode` 函数中查看
+
         *(uint64_t *)dst = src;
         next_rip(cr);
         // reset_cflags(cr);
@@ -519,7 +528,7 @@ static void push_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
     // * e.g push %rbp
     if (src_od->type == REG) {
         cr->reg.rsp = cr->reg.rsp - 8;
-        wirte64bits_dram(va2pa(cr->reg.rsp, cr), *(uint64_t *)src, cr);
+        write64bits_dram(va2pa(cr->reg.rsp, cr), *(uint64_t *)src, cr);
 
         next_rip(cr);
         // reset_cflags(cr);
@@ -544,8 +553,22 @@ static void pop_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
     }
 }
 
+// * @brief
+// * leave == mov rbp,rsp + pop rbp
 static void leave_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    // uint64_t src = decode_operand(src_od);
+    // uint64_t dst = decode_operand(dst_od);
 
+    // * leave == mov rbp, rsp  pop rbp 结束当前函数调用 -> 退栈
+    cr->reg.rsp = cr->reg.rbp;  // 恢复栈顶
+    
+    cr->reg.rbp = read64bits_dram(va2pa(cr->reg.rsp, cr), cr);     // 恢复 rbp保存的值
+
+    cr->reg.rsp = cr->reg.rsp + 8;
+
+    next_rip(cr);
+
+    cr->flags.__cpu_flag_value = 0;
 }
 
 static void call_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
@@ -555,7 +578,7 @@ static void call_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
     // * call 0xxxx/function addres
     cr->reg.rsp = cr->reg.rsp - 8;
 
-    wirte64bits_dram(va2pa(cr->reg.rsp, cr), cr->rip + sizeof(char) * MAX_INSTRUCTION_CHAR, cr);
+    write64bits_dram(va2pa(cr->reg.rsp, cr), cr->rip + sizeof(char) * MAX_INSTRUCTION_CHAR, cr);
 
     cr->rip = src;
     // reset_cflags(cr);
@@ -582,22 +605,133 @@ static void add_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
 
         // ?
         *(uint64_t *)dst = val;
-        // next_rip(cr);
-        cr->flags.__cpu_flag_value = 0;
+
+
+        // * set cpu_flags
+
+
+        // 取运算数符号位
+        uint8_t src_sign = (*(uint64_t *)src >> 63) & 0x1;
+        uint8_t dst_sign = (*(uint64_t *)dst >> 63) & 0x1;
+        uint8_t val_sign = (val >> 63) & 0x1;
+
+
+        // * a + b < a || a < a - 1
+        cr->flags.CF = (val < *(uint64_t *)src);    // * 无符号溢出
+        // * val == 0
+        cr->flags.ZF = (val == 0x0);
+        // * neg
+        cr->flags.SF = val_sign;                    // * 判断最高位符号
+
+        // *  ' 卡诺图判断化简 '  a == b && c = 0 / 1  
+        //    // src_sign = 0 && dst_sign = 0 && val_sign = 1
+        //    // src_sign = 1 && dst_sign = 1 && val_sign = 0
+        cr->flags.OF = (src_sign == dst_sign) ^ val_sign;
+
+        next_rip(cr);
         return;
     }
 }
 
 static void sub_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    // * sub 0x28, reg
+    uint64_t src = decode_operand(src_od);
+    uint64_t dst = decode_operand(dst_od);
+
+
+    if (src_od->type == IMM && dst_od->type == REG) {
+        uint64_t val = *(uint64_t *)dst + (~src + 1);
+        // * 5 = 0000000000000101, 3 = 0000000000000011, -3 = 1111111111111101, 5 + (-3) = 0000000000000010
+        // ?
+        // // next_rip(cr);
+        // // cr->flags.__cpu_flag_value = 0;
+
+        // * set cpu_flags
+
+        // copy paste
+        // 取运算数符号位
+        uint8_t src_sign = (src >> 63) & 0x1;
+        uint8_t dst_sign = (*(uint64_t *)dst >> 63) & 0x1;
+        uint8_t val_sign = (val >> 63) & 0x1;
+
+
+        // * a + b < a || a < a - 1
+        cr->flags.CF = (val > *(uint64_t *)dst);    // * 无符号溢出
+        // * val == 0
+        cr->flags.ZF = (val == 0x0);
+        // * neg
+        cr->flags.SF = val_sign;                    // * 判断最高位符号
+
+        // *  ' 卡诺图判断化简 '  a == b && c = 0 / 1  
+        //    // src_sign = 0 && dst_sign = 0 && val_sign = 1
+        //    // src_sign = 1 && dst_sign = 1 && val_sign = 0
+        cr->flags.OF = ((src_sign == dst_sign) ^ val_sign);
+
+        *(uint64_t *)dst = val;
+        next_rip(cr);
+        return;
+    }
 }
 
 static void cmp_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    // * e.g. cmpq   $0x0,-0x8(%rbp)    dst - src
+    uint64_t src = decode_operand(src_od);
+    uint64_t dst = decode_operand(dst_od);
+
+    if (src_od->type == IMM && dst_od->type == MEM_IMM_REG1) {
+        // * if dst - src = 0 set ZF = 0
+        
+        uint64_t dval = read64bits_dram(va2pa(dst, cr), cr);
+        uint64_t val = dval + (~src + 1);
+
+        uint8_t src_sign = (src >> 63) & 0x1;
+        uint8_t dst_sign = (dval >> 63) & 0x1;
+        uint8_t val_sign = (val >> 63) & 0x1;
+
+        // * unsigned
+        cr->flags.CF = (val > dval);  
+        cr->flags.ZF = (val == 0); 
+
+        // * intsigned
+        cr->flags.SF = val_sign; // neg 
+        cr->flags.OF = ((src_sign == dst_sign) ^ val_sign);
+
+
+        next_rip(cr);
+        return;
+    }
 }
 
 static void jne_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    // * jne: `zf == 0` jump
+    uint64_t src = decode_operand(src_od);
+
+    if (src_od->type == MEM_IMM) {
+        if (cr->flags.ZF == 0) {
+            // * note: next_rip 加载了下一条指令的偏移量 并不是直接跳转
+            // ! ××× cr->rip = src - MAX_INSTRUCTION_CHAR; ×××
+
+            cr->rip = src;
+        } else {
+            next_rip(cr);
+        }
+    }
+
+    // * 执行跳转指令后清零标志位
+    cr->flags.__cpu_flag_value = 0; // set zero flags
 }
 
 static void jmp_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
+    // * 直接跳转
+    uint64_t src = decode_operand(src_od);
+
+    if (src_od->type == MEM_IMM) {
+
+        cr->rip = src;
+        
+        cr->flags.__cpu_flag_value = 0;
+        return;
+    }
 }
 
 
@@ -606,8 +740,17 @@ static void jmp_handler(od_t *src_od, od_t *dst_od, core_t *cr) {
 // * 外部接口
 void instruction_cycle(core_t *cr) {
 
+    /*
     // * get and print rip addres
-    const char *inst_str = (const char *)cr->rip;
+        const char *inst_str = (const char *)cr->rip;
+        // 将代码块添加到内存后 该行为未定义
+    */
+
+    // * get the instruction string by program counter
+    char inst_str[MAX_INSTRUCTION_CHAR + 10];
+    // * 从' 内存 '中读取代码块的位置
+    readinst_dram(va2pa(cr->rip, cr), inst_str, cr);
+
     debug_printf(DEBUG_INSTRUCTIONCYCLE, "%lx   %s\n", cr->rip, inst_str);
 
     // printf("isnt_srt:    %c\n", *(const char *)(cr->rip));
@@ -616,7 +759,6 @@ void instruction_cycle(core_t *cr) {
     // * 形参 isnt 带出信息
     isnt_t inst;
     parse_instruction(inst_str, &inst, cr);
-
 
     // * callback
     handler_t handler = handler_table[inst.op_t];

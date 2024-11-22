@@ -5,6 +5,8 @@
  */
 
 // * Dynamic Random Access Memory
+#include<string.h>
+#include<assert.h>
 #include<headers/cpu.h>
 #include<headers/memory.h>
 #include<headers/common.h>
@@ -36,7 +38,7 @@ uint64_t read64bits_dram(uint64_t paddr, core_t *cr) {
     }
 }
 
-void wirte64bits_dram(uint64_t paddr, uint64_t data, core_t *cr) {
+void write64bits_dram(uint64_t paddr, uint64_t data, core_t *cr) {
     if (DEBUG_ENABLE_SRAM_CACHE == 1) {
         return;
     } else {
@@ -45,5 +47,26 @@ void wirte64bits_dram(uint64_t paddr, uint64_t data, core_t *cr) {
             pm[paddr + i] = (data >> j) & 0xff;
             // printf("mm addr: %p  value: %x\n", &mm[paddr + i], mm[paddr + i]); test
         }
+    }
+}
+
+void readinst_dram(uint64_t paddr, char *buf, core_t *cr) {
+
+    // 类似 dram的读内存
+    for (int i = 0; i < MAX_INSTRUCTION_CHAR; i++) 
+        buf[i] = (char)pm[paddr + i];
+}
+
+void writeinst_dram(uint64_t paddr, const char *str, core_t *cr) {
+
+    // dram 的写内存 多余位用 0填充
+    int len = strlen(str);
+    assert(len < MAX_INSTRUCTION_CHAR);     // max char
+
+    for (int i = 0; i < MAX_INSTRUCTION_CHAR; i++) {
+        if ( i < len)
+            pm[paddr + i] = (uint8_t)str[i];
+        else
+            pm[paddr + i] = 0;
     }
 }

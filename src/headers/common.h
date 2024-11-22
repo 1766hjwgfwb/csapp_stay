@@ -11,6 +11,7 @@
 
 
 #include<stdint.h>
+#include<headers/cpu.h>
 
 
 #define DEBUG_INSTRUCTIONCYCLE      0x1
@@ -44,6 +45,11 @@ uint32_t uint2float(uint32_t u);
 // * converter string dec or hex to the integer bitmap
 uint64_t string2uint(const char* str);
 uint64_t string2uint_range(const char* str, int start, int end);
+
+
+// * ldd " code segment " to physics memory
+void readinst_dram(uint64_t paddr, char *buf, core_t *cr);
+void writeinst_dram(uint64_t paddr, const char *str, core_t *cr);
 
 
 #endif
