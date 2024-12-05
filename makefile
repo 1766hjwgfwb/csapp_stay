@@ -1,7 +1,7 @@
 CC = /usr/bin/gcc
 
 CFLAGS = -Wall -g -O2 -Werror -std=gnu99 -Wno-unused-function
-GDB_MES = -O0 -g -std=gnu99 -Wno-unused-function
+GDB_MES = --verbose -O0 -g -std=gnu99 -Wno-unused-function
 
 EXE = program
 
@@ -28,16 +28,25 @@ CPU = $(SRC)/headware/cpu/mmu.c $(SRC)/headware/cpu/isa.c
 MEMORY = $(SRC)/headware/memory/dram.c
 
 
+# linker
+LINK = $(SRC)/linker/parseELF.c
+
+
 # main
-MAIN = $(SRC)/tests/test_headware.c
+MAIN_headware = $(SRC)/tests/test_headware.c
+MAIN_elf = $(SRC)/tests/test_elf.c
 
 
 
 .PHONY:csapp
 csapp:
-	$(CC) $(CFLAGS) -I$(SRC) $(COMMON) $(CPU) $(MEMORY) $(MAIN) -o $(EXE)
+	$(CC) $(CFLAGS) -I$(SRC) $(COMMON) $(CPU) $(MEMORY) $(MAIN_headware) -o $(EXE)
 	./$(EXE)
 
+.PHONY:elf
+elf:
+	$(CC) $(CFLAGS) -I$(SRC) $(COMMON) $(LINK) $(MAIN_elf) -o ./bin/elf_test
+	./bin/elf_test
 
 clean:
 	rm -f $(EXE)

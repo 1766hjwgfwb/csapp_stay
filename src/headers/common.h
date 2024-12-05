@@ -24,7 +24,7 @@
 #define DEBUG_LOADER                0X80
 #define DEBUG_PARSEINST             0X100
 
-#define DEBUG_VERBOSE_SET          0X7
+#define DEBUG_VERBOSE_SET          0X41
 
 
 #define DEBUG_ENABLE_PAGE_CACHE     0

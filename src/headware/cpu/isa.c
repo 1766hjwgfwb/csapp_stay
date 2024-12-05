@@ -86,7 +86,9 @@ static uint64_t decode_operand(od_t *od);
 static uint64_t reflact_register(const char *str); 
 
 
-// * parse operand
+/// @brief parse operand
+/// @param od 
+/// @return od type
 static uint64_t decode_operand(od_t *od) {
     if (od->type == IMM)
         return *(uint64_t *)&od->imm;   // imm maybe is a negative
@@ -180,6 +182,9 @@ static uint64_t reflact_register(const char *reg_name) {
     exit(0);
 }
 
+/// @brief parse instruction 可构建抽象语法树
+/// @param str e.g. "mov %rax, %rbx"
+/// @param inst callback need args
 static void parse_instruction(const char *str, isnt_t *inst) {
     
     // * 状态机解析
@@ -750,7 +755,7 @@ void instruction_cycle() {
         const char *inst_str = (const char *)cr->rip;
         // 将代码块添加到内存后 该行为未定义
     */
-
+    // todo Fetch
     // * get the instruction string by program counter
     char inst_str[MAX_INSTRUCTION_CHAR + 10];
     // * 从' 内存 '中读取代码块的位置
@@ -762,10 +767,13 @@ void instruction_cycle() {
     // printf("isnt_srt:    %c\n", *(const char *)(cr->rip));
     // printf("%p\n", &cr->rip);
 
+    // todo Decode
     // * 形参 isnt 带出信息
     isnt_t inst;
     parse_instruction(inst_str, &inst);
 
+
+    // todo Execute
     // * callback
     handler_t handler = handler_table[inst.op_t];
 
