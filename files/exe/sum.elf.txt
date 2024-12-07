@@ -17,8 +17,8 @@
 
 // begin of section headers     
 // sh_name, sh_addr, sh_offset, sh_size
-.text, 0x0, 4, 22
-.symtab, 0x0, 26, 2
+.text,0x0,4,22
+.symtab,0x0,26,2
 
 // .text section
 // endbr64
@@ -44,10 +44,10 @@ mov    -0x8(%rbp),%rax
 add    %rdx,%rax
 pop    %rbp
 ret
-       
-                     
+
+
 // .symtab section
 // st_name, bind, type, st_shndex, st_value, st_size
 // line -> size
-sum, STB_GLOBAL, STT_FUNCTION, .text, 0, 22
-bias, STB_GLOBAL, STT_OBJECT, COMMON, 8, 8
+sum,STB_GLOBAL,STT_FUNCTION,.text,0,22
+bias,STB_GLOBAL,STT_OBJECT,COMMON,8,8

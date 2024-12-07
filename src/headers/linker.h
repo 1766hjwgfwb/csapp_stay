@@ -62,13 +62,14 @@ typedef struct {
     char buffer[MAX_ELF_FILE_LENGTH][MAX_ELF_FILE_WIDTH];
 
     uint64_t line_count;
+    uint64_t sh_count;
+
     st_entry_t *sht;
 }elf_t;
 
 
-
-
-
+// * parse elf file argument elf *
+void parse_elf(const char *filename, elf_t *elf);
 
 
 #endif /* LINKER_H_GUARD */
