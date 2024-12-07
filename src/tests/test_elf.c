@@ -13,7 +13,6 @@
 
 
 
-// int read_elf(const char *filename, uint64_t bufaddr);
 
 
 

@@ -65,10 +65,13 @@ typedef struct {
     uint64_t sh_count;
 
     st_entry_t *sht;
+
+    uint64_t sym_count;
+    sym_entry_t *symt;
 }elf_t;
 
 
-// * parse elf file argument elf *
+// * visible functions * API
 void parse_elf(const char *filename, elf_t *elf);
 
 

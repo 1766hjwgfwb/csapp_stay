@@ -99,8 +99,54 @@ static void parse_sh(char *str, st_entry_t *sh) {
 }
 
 
+static void parse_symtab(char *str, sym_entry_t *symtab) { 
+    char **cols;
+
+    int n_cols = parse_table_entry(str, &cols);
+    assert(n_cols == 6);
+
+    // * parse st_name, bind, type, st_shndex, st_value, st_size
+    // sum,STB_GLOBAL,STT_FUNC,.text,0,22
+    strcpy(symtab->st_name, cols[0]);
+    
+    // * bind
+    if (strcmp(cols[1], "STB_GLOBAL") == 0)
+        symtab->bind = STB_GLOBAL;
+    else if (strcmp(cols[1], "STB_WEAK") == 0)
+        symtab->bind = STB_WEAK;
+    else if (strcmp(cols[1], "STB_LOCAL") == 0)
+        symtab->bind = STB_LOCAL;
+    else {
+        debug_printf(DEBUG_LINKER, "Error: unknown bind type %s\n", cols[1]);
+        exit(1);
+    }
+
+    // * type
+    if (strcmp(cols[2], "STT_NOTYPE") == 0)
+        symtab->type = STT_NOTYPE;
+    else if (strcmp(cols[2], "STT_OBJECT") == 0)
+        symtab->type = STT_OBJECT;
+    else if (strcmp(cols[2], "STT_FUNC") == 0)
+        symtab->type = STT_FUNC;
+    else {
+        debug_printf(DEBUG_LINKER, "Error: unknown type %s\n", cols[2]);
+    }
+
+    strcpy(symtab->st_shndx, cols[3]);
+    symtab->st_value = string2uint(cols[4]);
+    symtab->st_size = string2uint(cols[5]);
+
+    free_table_entry(cols, n_cols);
+}
+
+
 static void print_sh_entry(st_entry_t *sh) {
     debug_printf(DEBUG_LINKER, "sh_name: %s\n\tsh_addr: %lx\n\tsh_offset: %lx\n\tsh_size: %lx\n", sh->sh_name, sh->sh_addr, sh->sh_offset, sh->sh_size);
+}
+
+
+static void print_sym_entry(sym_entry_t *sym) {
+    debug_printf(DEBUG_LINKER, "syt_name: %s\n\tbind: %d\n\ttype: %d\n\tsyt_shndx: %s\n\tsyt_value: %lx\n\tsyt_size: %lx\n", sym->st_name, sym->bind, sym->type, sym->st_shndx, sym->st_value, sym->st_size);
 }
 
 
@@ -180,8 +226,10 @@ static int read_elf(const char *filename, uint64_t bufaddr) {
 static void free_elf(elf_t *elf) {
     // * free elf sht
     assert(elf->sht != NULL);
+    assert(elf->symt != NULL);
 
     free(elf->sht);
+    free(elf->symt);
 }
 
 
@@ -195,13 +243,32 @@ void parse_elf(const char *filename, elf_t *elf) {
     // * buffer[1] = section table count
     int sh_count = string2uint(elf->buffer[1]);
     elf->sht = malloc(sh_count * sizeof(st_entry_t));
+    
+    elf->sh_count = sh_count;
+    elf->line_count = line_count;
 
 
-
+    st_entry_t *sym_sh = NULL;
     for (int i = 0; i < sh_count; i++) {
         parse_sh(elf->buffer[i + 2], &(elf->sht[i]));
         print_sh_entry(&elf->sht[i]);
+        
+        if (strcmp(elf->sht[i].sh_name, ".symtab") == 0) { 
+            sym_sh = &elf->sht[i];     // copy symtab entry
+        }
     }
+
+    assert(sym_sh != NULL);
+
+    elf->sym_count = sym_sh->sh_size;   // sh_size is the line count
+    elf->symt = malloc(elf->sym_count * sizeof(sym_entry_t));
+
+
+    for (int i = 0; i < elf->sym_count; i++) {
+        parse_symtab(elf->buffer[sym_sh->sh_offset + i], &(elf->symt[i]));
+        print_sym_entry(&elf->symt[i]);
+    }
+
 
     free_elf(elf);
 }
