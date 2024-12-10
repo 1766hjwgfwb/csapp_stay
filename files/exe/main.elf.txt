@@ -1,0 +1,56 @@
+//unsigned long long sum(unsigned long long *a, unsigned long long n);
+//unsigned long long bias = 0xf000000000;
+//unsigned long long array[2] = {0x12340000, 0xabcd};
+//unsigned long long main() {
+//    unsigned long long val = sum(array, 2);
+//    return val;
+//}
+
+
+// count of effective line      # effective line is sh_offset
+23
+
+
+// count of section headers     # use effective section
+3
+
+
+
+// begin of section headers     
+// sh_name, sh_addr, sh_offset, sh_size
+.text,0x0,5,11
+.data,0x0,16,3
+.symtab,0x0,19,4
+
+
+
+
+// .text
+// main()
+push   %rbp
+mov    %rsp,%rbp
+sub    $0x10,%rsp
+mov    $0x2,%esi
+lea    0x0(%rip),%rax        // 18 <main+0x18>
+mov    %rax,%rdi
+call   20 <main+0x20>
+mov    %rax,-0x8(%rbp)
+mov    -0x8(%rbp),%rax
+leave
+ret
+
+
+
+// .data
+0x00000000f0000000
+0x0000000012340000
+0x000000000000abcd
+
+
+// .symtab
+// st_name, bind, type, st_shndex, st_value, st_size
+// line
+array,STB_GLOBAL,STT_OBJECT,.data,0,16
+bias,STB_GLOBAL,STT_OBJECT,.data,10,8
+main,STB_GLOBAL,STT_FUNC,.text,0,42
+sum,STB_GLOBAL,STT_NOTYPE,SHN_UNDEF,0,0

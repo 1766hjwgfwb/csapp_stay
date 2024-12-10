@@ -14,6 +14,18 @@
 
 
 
+
+static int parse_table_entry(char *str, char ***ent);
+static void free_table_entry(char **ent, int n);
+static void parse_sh(char *str, st_entry_t *sh);
+static void parse_symtab(char *str, sym_entry_t *symtab);
+static void print_sh_entry(st_entry_t *sh);
+static void print_sym_entry(sym_entry_t *sym);
+static int read_elf(const char *filename, uint64_t bufaddr);
+static void free_elf(elf_t *elf);
+
+
+
 static int parse_table_entry(char *str, char ***ent) {
     // * parse line as table entry
     int count_col = 1;          // begin with 1, because we need to count the first column
@@ -141,12 +153,12 @@ static void parse_symtab(char *str, sym_entry_t *symtab) {
 
 
 static void print_sh_entry(st_entry_t *sh) {
-    debug_printf(DEBUG_LINKER, "sh_name: %s\n\tsh_addr: %lx\n\tsh_offset: %lx\n\tsh_size: %lx\n", sh->sh_name, sh->sh_addr, sh->sh_offset, sh->sh_size);
+    debug_printf(DEBUG_LINKER, "sh_name: %s\tsh_addr: %lx\tsh_offset: %lx\tsh_size: %lx\n", sh->sh_name, sh->sh_addr, sh->sh_offset, sh->sh_size);
 }
 
 
 static void print_sym_entry(sym_entry_t *sym) {
-    debug_printf(DEBUG_LINKER, "syt_name: %s\n\tbind: %d\n\ttype: %d\n\tsyt_shndx: %s\n\tsyt_value: %lx\n\tsyt_size: %lx\n", sym->st_name, sym->bind, sym->type, sym->st_shndx, sym->st_value, sym->st_size);
+    debug_printf(DEBUG_LINKER, "syt_name: %s\tbind: %d\ttype: %d\tsyt_shndx: %s\tsyt_value: %lx\tsyt_size: %lx\n", sym->st_name, sym->bind, sym->type, sym->st_shndx, sym->st_value, sym->st_size);
 }
 
 
@@ -210,7 +222,7 @@ static int read_elf(const char *filename, uint64_t bufaddr) {
 
         } else {
             debug_printf(DEBUG_LINKER, "Error: Too many lines in file %s\n, max length is %d\n", filename, MAX_ELF_FILE_LENGTH);
-
+            
             fclose(fp);
             exit(1);
         }
@@ -269,6 +281,6 @@ void parse_elf(const char *filename, elf_t *elf) {
         print_sym_entry(&elf->symt[i]);
     }
 
-
+    // safety free
     free_elf(elf);
 }

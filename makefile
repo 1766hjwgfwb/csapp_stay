@@ -29,7 +29,7 @@ MEMORY = $(SRC)/headware/memory/dram.c
 
 
 # linker
-LINK = $(SRC)/linker/parseELF.c
+LINK = $(SRC)/linker/parseELF.c $(SRC)/linker/staticlink.c
 
 
 # main
