@@ -25,10 +25,20 @@ int main() {
     printf("\n");
     parse_elf("/csapp_stay/files/exe/main.elf.txt", &src[1]);
 
+    elf_t dst;
+    elf_t *scrp[2];
+    scrp[0] = &src[0];
+    scrp[1] = &src[1];
+
+    link_elf((elf_t**)&scrp, 2, &dst);
+
 
     // parse_elf already free the memory of elf, so we don't need to free it again.
     // free_elf(&elf);    
 
+    free_elf(&src[0]);
+    free_elf(&src[1]);
 
+    
     return 0;
 }

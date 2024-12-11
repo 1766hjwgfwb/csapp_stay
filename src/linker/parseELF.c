@@ -22,7 +22,7 @@ static void parse_symtab(char *str, sym_entry_t *symtab);
 static void print_sh_entry(st_entry_t *sh);
 static void print_sym_entry(sym_entry_t *sym);
 static int read_elf(const char *filename, uint64_t bufaddr);
-static void free_elf(elf_t *elf);
+// static void free_elf(elf_t *elf);
 
 
 
@@ -235,7 +235,7 @@ static int read_elf(const char *filename, uint64_t bufaddr) {
     return line_count;
 }
 
-static void free_elf(elf_t *elf) {
+void free_elf(elf_t *elf) {
     // * free elf sht
     assert(elf->sht != NULL);
     assert(elf->symt != NULL);
@@ -282,5 +282,6 @@ void parse_elf(const char *filename, elf_t *elf) {
     }
 
     // safety free
-    free_elf(elf);
+    // free_elf(elf);
+    // not free elf, because it is used in staticlinker.c
 }
