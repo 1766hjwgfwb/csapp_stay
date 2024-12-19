@@ -48,9 +48,9 @@ ret
 
 
 // .symtab
-// st_name, bind, type, st_shndex, st_value, st_size
+// st_name, bind, type, st_shndex, st_value, st_size(.text line_count/bits)
 // line
-array,STB_GLOBAL,STT_OBJECT,.data,0,16
-bias,STB_GLOBAL,STT_OBJECT,.data,10,8
-main,STB_GLOBAL,STT_FUNC,.text,0,42
+array,STB_GLOBAL,STT_OBJECT,.data,0,2
+bias,STB_GLOBAL,STT_OBJECT,.data,2,1
+main,STB_GLOBAL,STT_FUNC,.text,0,11
 sum,STB_GLOBAL,STT_NOTYPE,SHN_UNDEF,0,0

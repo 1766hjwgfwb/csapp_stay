@@ -253,15 +253,15 @@ void parse_elf(const char *filename, elf_t *elf) {
         printf("[%d]\t%s\n", i, elf->buffer[i]);
 
     // * buffer[1] = section table count
-    int sh_count = string2uint(elf->buffer[1]);
-    elf->sht = malloc(sh_count * sizeof(st_entry_t));
+    elf->sh_count = string2uint(elf->buffer[1]);
+    elf->sht = malloc(elf->sh_count * sizeof(st_entry_t));
     
-    elf->sh_count = sh_count;
+    // elf->sh_count = sh_count;
     elf->line_count = line_count;
 
 
     st_entry_t *sym_sh = NULL;
-    for (int i = 0; i < sh_count; i++) {
+    for (int i = 0; i < elf->sh_count; i++) {
         parse_sh(elf->buffer[i + 2], &(elf->sht[i]));
         print_sh_entry(&elf->sht[i]);
         
