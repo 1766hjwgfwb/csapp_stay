@@ -4,5 +4,5 @@ Lab
 src/temp
 *.md
 !README.md
-recommend*
+*.py
 build

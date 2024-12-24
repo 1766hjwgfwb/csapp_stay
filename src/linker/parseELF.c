@@ -21,7 +21,9 @@ static void parse_sh(char *str, st_entry_t *sh);
 static void parse_symtab(char *str, sym_entry_t *symtab);
 static void print_sh_entry(st_entry_t *sh);
 static void print_sym_entry(sym_entry_t *sym);
+static void print_rl_entry(rl_entry_t *rl);
 static int read_elf(const char *filename, uint64_t bufaddr);
+static void parse_reloution(char *str, rl_entry_t *rel);
 // static void free_elf(elf_t *elf);
 
 
@@ -161,6 +163,10 @@ static void print_sym_entry(sym_entry_t *sym) {
     debug_printf(DEBUG_LINKER, "syt_name: %s\tbind: %d\ttype: %d\tsyt_shndx: %s\tsyt_value: %lx\tsyt_size: %lx\n", sym->st_name, sym->bind, sym->type, sym->st_shndx, sym->st_value, sym->st_size);
 }
 
+static void print_rl_entry(rl_entry_t *rl) {
+    debug_printf(DEBUG_LINKER, "r_row: %ld\tr_col: %ld\tr_type: %d\tsym: %lx\tr_addend: %ld\n", rl->r_row, rl->r_col, rl->r_type, rl->sym, rl->r_addend);
+}
+
 
 /// @brief read elf file and store it in buffer 
 /// @param filename 
@@ -235,6 +241,38 @@ static int read_elf(const char *filename, uint64_t bufaddr) {
     return line_count;
 }
 
+
+static void parse_reloution(char *str, rl_entry_t *rel) {
+    // 4,7,R_X86_64_PC32,0,-4
+    char **cols;
+    int num_cols = parse_table_entry(str, &cols);
+    assert(num_cols == 5);
+
+    assert(rel != NULL);
+    rel->r_row = string2uint(cols[0]);
+    rel->r_col = string2uint(cols[1]);
+
+    // selelct relocation type
+    if (strcmp(cols[2], "R_X86_64_PC32") == 0)
+        rel->r_type = R_X86_64_PC32;
+    else if (strcmp(cols[2], "R_X86_64_32") == 0)
+        rel->r_type = R_X86_64_32;
+    else if (strcmp(cols[2], "R_X86_64_PLT32") == 0)
+        rel->r_type = R_X86_64_PLT32;
+    else {
+        debug_printf(DEBUG_LINKER, "Error: unknown relocation type %s\n", cols[2]);
+        exit(1);
+    }
+
+    rel->sym = string2uint(cols[3]);
+
+    uint64_t bitmap = string2uint(cols[4]);
+    rel->r_addend = *(int64_t*)&bitmap;
+
+    free_table_entry(cols, num_cols);
+}
+
+
 void free_elf(elf_t *elf) {
     // * free elf sht
     assert(elf->sht != NULL);
@@ -261,17 +299,23 @@ void parse_elf(const char *filename, elf_t *elf) {
 
 
     st_entry_t *sym_sh = NULL;
+    st_entry_t *rtext_sh = NULL;
+    st_entry_t *rdata_sh = NULL;
     for (int i = 0; i < elf->sh_count; i++) {
         parse_sh(elf->buffer[i + 2], &(elf->sht[i]));
         print_sh_entry(&elf->sht[i]);
         
-        if (strcmp(elf->sht[i].sh_name, ".symtab") == 0) { 
+        if (strcmp(elf->sht[i].sh_name, ".symtab") == 0) 
             sym_sh = &elf->sht[i];     // copy symtab entry
-        }
+        else if (strcmp(elf->sht[i].sh_name, ".rel.text") == 0)
+            rtext_sh = &elf->sht[i];    // copy rel.text entry
+        else if (strcmp(elf->sht[i].sh_name, ".rel.data") == 0)
+            rdata_sh = &elf->sht[i];    // copy rel.data entry
     }
 
     assert(sym_sh != NULL);
 
+    // * parse symbol table
     elf->sym_count = sym_sh->sh_size;   // sh_size is the line count
     elf->symt = malloc(elf->sym_count * sizeof(sym_entry_t));
 
@@ -284,4 +328,57 @@ void parse_elf(const char *filename, elf_t *elf) {
     // safety free
     // free_elf(elf);
     // not free elf, because it is used in staticlinker.c
+
+    // assert(rtext_sh != NULL);    not necessary, because we can have no relocation.text
+
+    // * parse relocation.text table
+    if (rtext_sh != NULL) {
+        elf->reltext_count = rtext_sh->sh_size;
+        elf->reltext = malloc(elf->reltext_count * sizeof(rl_entry_t));
+
+        for (int i = 0; i < elf->reltext_count; i++) { 
+            parse_reloution(elf->buffer[rtext_sh->sh_offset + i], &(elf->reltext[i]));
+            int st = elf->reltext[i].sym;
+            assert(st >= 0 && st < elf->sym_count);     // pointer to symbol table, so it should be valid index
+
+            print_rl_entry(&elf->reltext[i]);
+        }
+    } else {
+        elf->reltext_count = 0;
+        elf->reltext = NULL;
+    }
+
+
+    // * parse relocation.data table
+    if (rdata_sh != NULL) {
+        elf->reldata_count = rdata_sh->sh_size;
+        elf->reldata = malloc(elf->reldata_count * sizeof(rl_entry_t));
+
+        for (int i = 0; i < elf->reldata_count; i++) {
+            parse_reloution(elf->buffer[rdata_sh->sh_offset + i], &(elf->reldata[i]));
+            int st = elf->reldata[i].sym;
+            assert(st >= 0 && st < elf->sym_count);     // pointer to symbol table, so it should be valid index
+
+            print_rl_entry(&elf->reldata[i]);
+        }
+    } else {
+        elf->reldata_count = 0;
+        elf->reldata = NULL;
+    }
+}
+
+
+void write_eof(const char *filename, elf_t *eof) {
+    // open elf file
+    FILE *fp;
+    fp = fopen(filename, "w");
+    if (fp == NULL) {
+        debug_printf(DEBUG_LINKER, "Error: Cannot open file %s\n", filename);
+        exit(1);
+    }
+
+    for (int i = 0; i < eof->line_count; i++)
+        fprintf(fp, "%s\n", eof->buffer[i]);
+
+    fclose(fp);
 }

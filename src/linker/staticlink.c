@@ -20,6 +20,7 @@
 
 #define MAX_SYMBOL_MAP_LENGHT 64
 #define MAX_SECTION_BUFFER_LENGHT 64
+#define MAX_RELOCATION_LINES 64
 
 
 // static link (a.o b.o) -> ab.o
@@ -37,16 +38,34 @@ typedef struct {
     // used for relocation
 }smap_t;    // store the mapping of src -> dst
 
-
+// * symbol table processing
 // handle symbol table
 static void symbol_processing(elf_t **srcs, int num_srcs, elf_t *dst, smap_t *smap_table, int *smap_count);
 // handle relocation table
 static void simple_resolution(sym_entry_t *sym, elf_t *sym_elf, smap_t *candidate);
 // handle symbol precedence
 static int symbol_precedence(sym_entry_t *sym);
+
+// * section merging
 static void compute_section_header(elf_t *dst, smap_t *smap_table, int *smap_count);
 static void merge_section(elf_t **srcs, int num_srcs, elf_t *dst, smap_t *smap_table, int *smap_count);
 
+// * relocation processing
+// relocation symbol
+static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t *smap_table, int *smap_count);
+static void R_X86_64_32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+static void R_X86_64_PC32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+static void R_X86_64_PLT32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+
+typedef void (*rela_handler_t)(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+
+static rela_handler_t rela_handler_table[3] = {
+    &R_X86_64_32_handler,
+    &R_X86_64_PC32_handler,
+    &R_X86_64_PLT32_handler,
+};
+
+// * helper functions
 // parse enum
 static const char *get_stb_string(st_bind_t bind);
 static const char *get_stt_string(st_type_t type);
@@ -83,6 +102,66 @@ static const char *get_stt_string(st_type_t type) {
             debug_printf( DEBUG_LINKER, "unknown type %d\n", type);
             exit(0);
     }
+}
+
+
+static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t *smap_table, int *smap_count) {
+    // update the relocation entry r_row, r_col
+    for (int i = 0; i < num_srcs; i++) {
+        elf_t *elf = src[i];
+
+        // .rela.text
+        for (int j = 0; j < elf->reltext_count; j++) { 
+            rl_entry_t *rela = &(elf->reltext[j]);
+
+            // search the referenced symbol
+            for (int k = 0; k < elf->sym_count; k++) { 
+                sym_entry_t *sym = &(elf->symt[k]);
+
+                if (strcmp(sym->st_shndx, ".text") == 0) {
+                    // must be a symbol in.text section
+                    // check if this sybol is referenced by this relocation entry
+                    int sym_text_start = 0;
+                    int sym_text_end = 0;
+
+                    if (sym_text_start <= rela->r_row && rela->r_row <= sym_text_end) {
+                        // symt[k] is referenced by rela[j].sym
+                        int referencing_merge = 0;
+                        for (int t = 0; t < *smap_count; t++) {
+                            if (smap_table[t].src == sym) { 
+                                referencing_merge = 1;
+
+                                // get smap.dst
+                                int eof_row_referenc;
+
+                                for (int u = 0; u < *smap_count; ++u) {
+                                    rela_handler_table[(int)rela->r_type](dst, 0, 0, 0, NULL);
+                                }
+                            }
+                        }
+
+                        // must be a symbol in.text section
+                        assert(referencing_merge == 1);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+static void R_X86_64_32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
+
+}
+
+
+static void R_X86_64_PC32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
+
+}
+
+
+static void R_X86_64_PLT32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
+
 }
 
 
@@ -368,9 +447,7 @@ void link_elf(elf_t **srcs, int num_srcs, elf_t *dst) {
     // compute dst section
     compute_section_header(dst, smap, &smap_count);
 
-    // 
-
-    // todo:
+    
     // merge the symbol content of srcs into dst
     merge_section(srcs, num_srcs, dst, smap, &smap_count);
 
@@ -379,6 +456,18 @@ void link_elf(elf_t **srcs, int num_srcs, elf_t *dst) {
 
     for (int i = 0; i < dst->line_count; i++) {
         printf("merge section: [%d] %s\n", i, dst->buffer[i]);
+    }
+
+
+    // updata buffer
+    // relocating: update the relocation entries from ELF files into EOF buffer
+    relocation_processing(srcs, num_srcs, dst, smap, &smap_count);
+
+    // check eof file
+    if ((DEBUG_LINKER & DEBUG_VERBOSE_SET)) {
+        printf("---------- eof file ----------\n");
+        for (int i = 0; i < dst->line_count; i++)
+            printf("%s\n", i, dst->buffer[i]);
     }
 }
 
