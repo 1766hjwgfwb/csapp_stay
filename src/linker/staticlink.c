@@ -53,11 +53,11 @@ static void merge_section(elf_t **srcs, int num_srcs, elf_t *dst, smap_t *smap_t
 // * relocation processing
 // relocation symbol
 static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t *smap_table, int *smap_count);
-static void R_X86_64_32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
-static void R_X86_64_PC32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
-static void R_X86_64_PLT32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+static void R_X86_64_32_handler(elf_t *dst, st_entry_t *sh , int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+static void R_X86_64_PC32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+static void R_X86_64_PLT32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
 
-typedef void (*rela_handler_t)(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
+typedef void (*rela_handler_t)(elf_t *, st_entry_t *, int, int, int, sym_entry_t *);
 
 static rela_handler_t rela_handler_table[3] = {
     &R_X86_64_32_handler,
@@ -106,6 +106,18 @@ static const char *get_stt_string(st_type_t type) {
 
 
 static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t *smap_table, int *smap_count) {
+    // get eof sections, text and data
+    st_entry_t *eof_text_sh = NULL;
+    st_entry_t *eof_data_sh = NULL;
+
+    for (int i = 0; i < dst->sh_count; i++) {
+        if (strcmp(dst->sht[i].sh_name, ".text") == 0)
+            eof_text_sh = &(dst->sht[i]);
+        else if (strcmp(dst->sht[i].sh_name, ".data") == 0)
+            eof_data_sh = &(dst->sht[i]);
+    }
+        
+
     // update the relocation entry r_row, r_col
     for (int i = 0; i < num_srcs; i++) {
         elf_t *elf = src[i];
@@ -116,32 +128,89 @@ static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t 
 
             // search the referenced symbol
             for (int k = 0; k < elf->sym_count; k++) { 
-                sym_entry_t *sym = &(elf->symt[k]);
+                sym_entry_t *sym = &(elf->symt[k]);     // symtab of elf[i]
 
                 if (strcmp(sym->st_shndx, ".text") == 0) {
                     // must be a symbol in.text section
                     // check if this sybol is referenced by this relocation entry
-                    int sym_text_start = 0;
-                    int sym_text_end = 0;
 
+                    int sym_text_start = sym->st_value;     // look as a symbol in.text section line_count
+                    int sym_text_end = sym->st_value + sym->st_size;
+
+                    // the address is between st_value and st_value + st_size.
                     if (sym_text_start <= rela->r_row && rela->r_row <= sym_text_end) {
                         // symt[k] is referenced by rela[j].sym
-                        int referencing_merge = 0;
+                        int smap_found = 0;
+                        // first for loop to find the sym in smap_table
+                        // second for loop to find the sym in smap_table.dst
                         for (int t = 0; t < *smap_count; t++) {
-                            if (smap_table[t].src == sym) { 
-                                referencing_merge = 1;
+                            if (smap_table[t].src == sym) {         //  sym have been mapped to dst
+                                smap_found = 1;
+                                sym_entry_t *eof_referencing = smap_table[t].dst;
 
                                 // get smap.dst
-                                int eof_row_referenc;
-
                                 for (int u = 0; u < *smap_count; ++u) {
-                                    rela_handler_table[(int)rela->r_type](dst, 0, 0, 0, NULL);
+                                    // dst.bind == STB_GLOBAL, so it's a strong symbol
+                                    // only one sybmol can be mapped to a strong symbol
+                                    if (strcmp(elf->symt[rela->sym].st_name, smap_table[u].dst->st_name) == 0 && smap_table[u].dst->bind == STB_GLOBAL) {
+                                        // relative address (computing) == (r_row - sym->st_value)(offset) + smap_table[u].dst->st_value(runtime_addressalgorithm)
+                                        sym_entry_t *eof_referenced = smap_table[u].dst;
+                                        (rela_handler_table[(int)rela->r_type])(dst, eof_text_sh, rela->r_row - sym->st_value + eof_referencing->st_value, rela->r_col, rela->r_addend, eof_referenced);
+                                        // index 0,1,2....
+                                    }
                                 }
                             }
                         }
 
                         // must be a symbol in.text section
-                        assert(referencing_merge == 1);
+                        assert(smap_found == 1);
+                    }
+                }
+            }
+        }
+
+
+        // .rela.data
+        for (int j = 0; j < elf->reldata_count; j++) {
+            rl_entry_t *rela = &(elf->reldata[j]);
+
+            // search the referenced symbol
+            for (int k = 0; k < elf->sym_count; k++) {
+                sym_entry_t *sym = &(elf->symt[k]);     // symtab of elf[i]
+
+                if (strcmp(sym->st_shndx, ".data") == 0) {
+                    // must be a symbol in.data section
+                    // check if this sybol is referenced by this relocation entry
+
+                    int sym_data_start = sym->st_value;     // look as a symbol in.data section line_count
+                    int sym_data_end = sym->st_value + sym->st_size;
+
+                    // the address is between st_value and st_value + st_size.
+                    if (sym_data_start <= rela->r_row && rela->r_row <= sym_data_end) {
+                        // symt[k] is referenced by rela[j].sym
+                        int smap_found = 0;
+                        // first for loop to find the sym in smap_table
+                        // second for loop to find the sym in smap_table.dst
+                        for (int t = 0; t < *smap_count; t++) {
+                            if (smap_table[t].src == sym) {         //  sym have been mapped to dst
+                                smap_found = 1;
+                                sym_entry_t *eof_referencing = smap_table[t].dst;
+                                // get smap.dst
+                                for (int u = 0; u < *smap_count; ++u) {
+                                    // dst.bind == STB_GLOBAL, so it's a strong symbol
+                                    // only one sybmol can be mapped to a strong symbol
+                                    if (strcmp(elf->symt[rela->sym].st_name, smap_table[u].dst->st_name) == 0 && smap_table[u].dst->bind == STB_GLOBAL) {
+                                        // relative address (computing) == (r_row - sym->st_value)(offset) + smap_table[u].dst->st_value(runtime_addressalgorithm)
+                                        sym_entry_t *eof_referenced = smap_table[u].dst;
+                                        (rela_handler_table[(int)rela->r_type])(dst, eof_data_sh, rela->r_row - sym->st_value + eof_referencing->st_value, rela->r_col, rela->r_addend, eof_referenced);
+                                        // index 0,1,2....
+                                    }
+                                }
+                            }
+                        }
+
+                        // must be a symbol in.data section
+                        assert(smap_found == 1);
                     }
                 }
             }
@@ -150,18 +219,18 @@ static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t 
 }
 
 
-static void R_X86_64_32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
-
+static void R_X86_64_32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
+    printf("row = %d, col = %d, addend = %d, sym_referenced = %s\n", row_reference, col_reference, addend, sym_referenced->st_name);
 }
 
 
-static void R_X86_64_PC32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
-
+static void R_X86_64_PC32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
+    printf("row = %d, col = %d, addend = %d, sym_referenced = %s\n", row_reference, col_reference, addend, sym_referenced->st_name);
 }
 
 
-static void R_X86_64_PLT32_handler(elf_t *dst, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
-
+static void R_X86_64_PLT32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
+    printf("row = %d, col = %d, addend = %d, sym_referenced = %s\n", row_reference, col_reference, addend, sym_referenced->st_name);
 }
 
 
@@ -467,7 +536,7 @@ void link_elf(elf_t **srcs, int num_srcs, elf_t *dst) {
     if ((DEBUG_LINKER & DEBUG_VERBOSE_SET)) {
         printf("---------- eof file ----------\n");
         for (int i = 0; i < dst->line_count; i++)
-            printf("%s\n", i, dst->buffer[i]);
+            printf("[%d] %s\n", i, dst->buffer[i]);
     }
 }
 

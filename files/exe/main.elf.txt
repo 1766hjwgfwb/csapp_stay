@@ -8,7 +8,7 @@
 
 
 // count of effective line      # effective line is sh_offset
-25
+26
 
 
 // count of section headers     # use effective section
@@ -21,7 +21,7 @@
 .text,0x0,6,11
 .data,0x0,17,3
 .symtab,0x0,20,4
-.rel.text,0x0,23,2
+.rel.text,0x0,24,2
 
 
 
@@ -31,9 +31,9 @@ push   %rbp
 mov    %rsp,%rbp
 sub    $0x10,%rsp
 mov    $0x2,%esi
-lea    0x0(%rip),%rax        // 18 <main+0x18>
+lea    0x0000000000000000(%rip),%rax        // 18 <main+0x18>
 mov    %rax,%rdi
-call   20                    // <main+0x20>
+call   0x0000000000000000                   // <main+0x20>
 mov    %rax,-0x8(%rbp)
 mov    -0x8(%rbp),%rax
 leave

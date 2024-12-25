@@ -267,7 +267,7 @@ static void parse_reloution(char *str, rl_entry_t *rel) {
     rel->sym = string2uint(cols[3]);
 
     uint64_t bitmap = string2uint(cols[4]);
-    rel->r_addend = *(int64_t*)&bitmap;
+    rel->r_addend = *(int64_t*)&bitmap;     // convert bitmap to int64_t
 
     free_table_entry(cols, num_cols);
 }

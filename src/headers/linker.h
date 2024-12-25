@@ -75,7 +75,7 @@ typedef struct {
                         // rel.text -> .text section
                         // rel.data -> .data section
     uint32_t sym;       // symbol index
-    int64_t r_addend;   // constant addend
+    int64_t r_addend;   // constant addend for instruction line
 }rl_entry_t;
 
 
