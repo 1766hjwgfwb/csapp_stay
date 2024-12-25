@@ -280,6 +280,8 @@ void free_elf(elf_t *elf) {
 
     free(elf->sht);
     free(elf->symt);
+    free(elf->reltext);
+    free(elf->reldata);
 }
 
 

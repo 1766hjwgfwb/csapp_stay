@@ -32,6 +32,7 @@ int main() {
 
     link_elf((elf_t**)&scrp, 2, &dst);
 
+    write_eof("/csapp_stay/files/exe/output.eof.txt", &dst);
 
     // parse_elf already free the memory of elf, so we don't need to free it again.
     // free_elf(&elf);    

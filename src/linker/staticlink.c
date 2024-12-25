@@ -10,17 +10,19 @@
 
 
 #include<stdio.h>
+#include<stdbool.h>
 #include<stdlib.h>
 #include<stdint.h>
 #include<string.h>
 #include<assert.h>
+#include<headers/instruction.h>
 #include<headers/linker.h>
 #include<headers/common.h>
 
 
-#define MAX_SYMBOL_MAP_LENGHT 64
-#define MAX_SECTION_BUFFER_LENGHT 64
-#define MAX_RELOCATION_LINES 64
+#define MAX_SYMBOL_MAP_LENGHT (64)
+#define MAX_SECTION_BUFFER_LENGHT (64)
+#define MAX_RELOCATION_LINES (64)
 
 
 // static link (a.o b.o) -> ab.o
@@ -57,12 +59,16 @@ static void R_X86_64_32_handler(elf_t *dst, st_entry_t *sh , int row_reference, 
 static void R_X86_64_PC32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
 static void R_X86_64_PLT32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced);
 
+// write relocation entry
+static uint64_t get_sym_runtime_address(elf_t *dst, sym_entry_t *sym);
+
+
 typedef void (*rela_handler_t)(elf_t *, st_entry_t *, int, int, int, sym_entry_t *);
 
 static rela_handler_t rela_handler_table[3] = {
     &R_X86_64_32_handler,
+    &R_X86_64_PC32_handler,    // * why not use R_X86_64_PC32_handler?, because pc32 = PLT32 of linux
     &R_X86_64_PC32_handler,
-    &R_X86_64_PLT32_handler,
 };
 
 // * helper functions
@@ -124,6 +130,7 @@ static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t 
 
         // .rela.text
         for (int j = 0; j < elf->reltext_count; j++) { 
+            bool found = false;  // to check if the symbol is referenced by this relocation entry
             rl_entry_t *rela = &(elf->reltext[j]);
 
             // search the referenced symbol
@@ -135,7 +142,7 @@ static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t 
                     // check if this sybol is referenced by this relocation entry
 
                     int sym_text_start = sym->st_value;     // look as a symbol in.text section line_count
-                    int sym_text_end = sym->st_value + sym->st_size;
+                    int sym_text_end = sym->st_value + sym->st_size - 1;    // -1 because end address is inclusive, e.g. max count 22, index = 21
 
                     // the address is between st_value and st_value + st_size.
                     if (sym_text_start <= rela->r_row && rela->r_row <= sym_text_end) {
@@ -157,21 +164,28 @@ static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t 
                                         sym_entry_t *eof_referenced = smap_table[u].dst;
                                         (rela_handler_table[(int)rela->r_type])(dst, eof_text_sh, rela->r_row - sym->st_value + eof_referencing->st_value, rela->r_col, rela->r_addend, eof_referenced);
                                         // index 0,1,2....
+                                        found = true;
+                                        break;
                                     }
                                 }
                             }
+                            if (found)
+                                break;
                         }
 
                         // must be a symbol in.text section
                         assert(smap_found == 1);
                     }
                 }
+                if (found)
+                    break;
             }
         }
 
 
         // .rela.data
         for (int j = 0; j < elf->reldata_count; j++) {
+            bool found = false;  // to check if the symbol is referenced by this relocation entry
             rl_entry_t *rela = &(elf->reldata[j]);
 
             // search the referenced symbol
@@ -181,7 +195,6 @@ static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t 
                 if (strcmp(sym->st_shndx, ".data") == 0) {
                     // must be a symbol in.data section
                     // check if this sybol is referenced by this relocation entry
-
                     int sym_data_start = sym->st_value;     // look as a symbol in.data section line_count
                     int sym_data_end = sym->st_value + sym->st_size;
 
@@ -204,33 +217,102 @@ static void relocation_processing(elf_t **src, int num_srcs, elf_t *dst, smap_t 
                                         sym_entry_t *eof_referenced = smap_table[u].dst;
                                         (rela_handler_table[(int)rela->r_type])(dst, eof_data_sh, rela->r_row - sym->st_value + eof_referencing->st_value, rela->r_col, rela->r_addend, eof_referenced);
                                         // index 0,1,2....
+                                        found = true;
+                                        break;
                                     }
                                 }
                             }
+                            if (found)
+                                break;
                         }
 
                         // must be a symbol in.data section
                         assert(smap_found == 1);
                     }
                 }
+                if (found)
+                    break;
             }
         }
     }
 }
 
 
+static uint64_t get_sym_runtime_address(elf_t *dst, sym_entry_t *sym) {
+    uint64_t base =  0x00400000;
+
+    uint64_t text_base = base;
+    uint64_t rodata_base = base;
+    uint64_t data_base = base;
+
+    int inst_size = sizeof(isnt_t);
+    int data_size = sizeof(uint64_t);
+
+    // get the runtime address of sht in dst
+    st_entry_t *sht = dst->sht;
+    for (int i = 0; i < dst->sh_count; i++) {
+        if (strcmp(sht[i].sh_name, ".text") == 0) {
+            // isnt_size is simulation structure
+            rodata_base = text_base + sht[i].sh_size * inst_size;
+            data_base = rodata_base;
+        } else if (strcmp(sht[i].sh_name, ".rodata") == 0) { 
+            data_base = rodata_base + sht[i].sh_size * data_size;
+        }
+    }
+
+    // check if `symbol` section
+    if (strcmp(sym->st_shndx, ".text") == 0) {
+        return text_base + inst_size * sym->st_value;
+    } else if (strcmp(sym->st_shndx, ".rodata") == 0) {
+        return rodata_base + data_size * sym->st_value;
+    } else if (strcmp(sym->st_shndx, ".data") == 0) {
+        return data_base + data_size * sym->st_value;
+    }
+
+    // not found
+    return 0xFFFFFFFFFFFFFFFF;
+}
+
+
+static void write_relocation(char *dst, uint64_t val) {
+    char temp[20];
+    sprintf(temp, "0x%016lx", val);
+
+    for (int i = 0; i < 18; i++)
+        dst[i] = temp[i];
+}
+
+
 static void R_X86_64_32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
     printf("row = %d, col = %d, addend = %d, sym_referenced = %s\n", row_reference, col_reference, addend, sym_referenced->st_name);
+    uint64_t runtime_address = get_sym_runtime_address(dst, sym_referenced);
+    char *s = &dst->buffer[sh->sh_offset + row_reference][col_reference];
+
+    write_relocation(s, runtime_address);
 }
 
 
 static void R_X86_64_PC32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
-    printf("row = %d, col = %d, addend = %d, sym_referenced = %s\n", row_reference, col_reference, addend, sym_referenced->st_name);
+    // printf("row = %d, col = %d, addend = %d, sym_referenced = %s\n", row_reference, col_reference, addend, sym_referenced->st_name);
+
+    assert(strcmp(sh->sh_name, ".text") == 0);
+
+    uint64_t runtime_address = get_sym_runtime_address(dst, sym_referenced);
+    // next instruction address = current instruction address + 1
+    uint64_t rip_value = 0x00400000 + (row_reference + 1) * sizeof(isnt_t);
+    char *s = &dst->buffer[sh->sh_offset + row_reference][col_reference];
+
+    // same as S - P, A = 0
+    write_relocation(s, runtime_address - rip_value);
+    // now time rip is Relative addressing, so we need to Modify the addressing mode of the call instruction(current `call` instruction is ABS)
+    printf("runtime_address = %lx, rip_value = %lx, relocation = %lx\n", runtime_address, rip_value, runtime_address - rip_value);
 }
 
 
 static void R_X86_64_PLT32_handler(elf_t *dst, st_entry_t *sh, int row_reference, int col_reference, int addend, sym_entry_t *sym_referenced) {
     printf("row = %d, col = %d, addend = %d, sym_referenced = %s\n", row_reference, col_reference, addend, sym_referenced->st_name);
+
+    // * !!!R_X86_64_PLT32_handler = R_X86_64_PC32_handler, so we need one handler
 }
 
 
@@ -523,9 +605,8 @@ void link_elf(elf_t **srcs, int num_srcs, elf_t *dst) {
 
     printf("------------------------------\n");
 
-    for (int i = 0; i < dst->line_count; i++) {
+    for (int i = 0; i < dst->line_count; i++)
         printf("merge section: [%d] %s\n", i, dst->buffer[i]);
-    }
 
 
     // updata buffer

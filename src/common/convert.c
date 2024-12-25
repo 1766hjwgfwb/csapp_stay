@@ -107,21 +107,7 @@ uint64_t string2uint_range(const char* str, int start, int end) {
             else
                 goto fail;
         }
-        else if (state == 4) {
-            if ('0' <= c && c <= '9') {
-                state = 5;
-                uv = uv * 16 + c - '0';
-                continue;
-            }
-            else if ('a' <= c && c <= 'f') {
-                state = 5;
-                uv = uv * 16 + c - 'a' + 10;
-                continue;
-            }
-            else
-                goto fail;
-        }
-        else if (state == 5) {
+        else if (state == 4 || state == 5) {
             // hex
             if ('0' <= c && c <= '9') {
                 state = 5;
@@ -145,11 +131,15 @@ uint64_t string2uint_range(const char* str, int start, int end) {
                 }
                 continue;
             }
+            else if (state == 5 && (c == ' ' || c == '\t' || c == '\r' || c == '\n')) {
+                state = 6;
+                continue;
+            }
             else
                 goto fail;
         }
         else if (state == 6) {
-            if (c == ' ') {
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
                 state = 6;
                 continue;
             }
