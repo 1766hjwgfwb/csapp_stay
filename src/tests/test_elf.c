@@ -22,7 +22,7 @@ int main() {
 
     elf_t src[2];
     parse_elf("/csapp_stay/files/exe/sum.elf.txt", &src[0]);
-    printf("\n");
+    printf("----------------- elf seg ------------------\n");
     parse_elf("/csapp_stay/files/exe/main.elf.txt", &src[1]);
 
     elf_t dst;
@@ -32,12 +32,14 @@ int main() {
 
     link_elf((elf_t**)&scrp, 2, &dst);
 
+    write_eof("/csapp_stay/files/exe/output.eof.txt", &dst);
 
     // parse_elf already free the memory of elf, so we don't need to free it again.
     // free_elf(&elf);    
 
-    free_elf(&src[0]);
+    free_elf(&src[0]);  
     free_elf(&src[1]);
+    free_elf(&dst);
 
     
     return 0;

@@ -58,6 +58,28 @@ typedef struct {
 #define MAX_ELF_FILE_WIDTH (128)    // max width of elf file name effective line
 
 
+// * relocation table entry *
+
+typedef enum {
+    R_X86_64_32,
+    R_X86_64_PC32,
+    R_X86_64_PLT32,     // dynamic linking
+}reltype_t;
+
+// relocation entry type
+typedef struct { 
+    uint64_t r_row;     // line index
+
+    uint64_t r_col;     // column index
+    reltype_t r_type;   // relocation type
+                        // rel.text -> .text section
+                        // rel.data -> .data section
+    uint32_t sym;       // symbol index
+    int64_t r_addend;   // constant addend for instruction line
+}rl_entry_t;
+
+
+
 typedef struct {
     char buffer[MAX_ELF_FILE_LENGTH][MAX_ELF_FILE_WIDTH];
 
@@ -68,13 +90,22 @@ typedef struct {
 
     uint64_t sym_count;
     sym_entry_t *symt;
+
+    uint64_t reltext_count;
+    rl_entry_t *reltext;
+
+    uint64_t reldata_count;
+    rl_entry_t *reldata;
 }elf_t;
+
+
 
 
 // * visible functions * API
 void parse_elf(const char *filename, elf_t *elf);
 void link_elf(elf_t **srcs, int num_srcs, elf_t *dst);
 void free_elf(elf_t *elf);
+void write_eof(const char *filename, elf_t *eof);
 
 
 #endif /* LINKER_H_GUARD */

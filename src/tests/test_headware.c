@@ -12,7 +12,7 @@
 
 
 
-#define MAX_NUM_INSTRUCTION_CYCLE 100
+#define MAX_NUM_INSTRUCTION_CYCLE (100)
 
 
 // * extern var 
@@ -37,10 +37,10 @@ void TestParsingOperand();
 
 
 int main() {
-    // TestAddFunctionCallAndComputation();
+    TestAddFunctionCallAndComputation();
     // TestUintstring();
     // TestParsingOperand();
-    TestSumRecursiveCondition();
+    // TestSumRecursiveCondition();
 
     return 0;
 }

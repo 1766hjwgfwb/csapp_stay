@@ -280,8 +280,8 @@ extern cpu_pc_t cpu_pc;
 // extern uint64_t ACTIVE_CORE;
 
 
-#define MAX_INSTRUCTION_CHAR 64
-#define NUM_INSTRTYPE        14
+#define MAX_INSTRUCTION_CHAR (64)
+#define NUM_INSTRTYPE        (14)
 
 
 // TODO CPU exe cycle

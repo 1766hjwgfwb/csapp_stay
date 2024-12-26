@@ -8,20 +8,20 @@
 
 
 // count of effective line      # effective line is sh_offset
-23
+26
 
 
 // count of section headers     # use effective section
-3
+4
 
 
 
 // begin of section headers     
 // sh_name, sh_addr, sh_offset, sh_size
-.text,0x0,5,11
-.data,0x0,16,3
-.symtab,0x0,19,4
-
+.text,0x0,6,11
+.data,0x0,17,3
+.symtab,0x0,20,4
+.rel.text,0x0,24,2
 
 
 
@@ -31,9 +31,9 @@ push   %rbp
 mov    %rsp,%rbp
 sub    $0x10,%rsp
 mov    $0x2,%esi
-lea    0x0(%rip),%rax        // 18 <main+0x18>
+lea    0x0000000000000000(%rip),%rax        // 18 <main+0x18>
 mov    %rax,%rdi
-call   20 <main+0x20>
+call   0x0000000000000000                   // <main+0x20>
 mov    %rax,-0x8(%rbp)
 mov    -0x8(%rbp),%rax
 leave
@@ -42,15 +42,22 @@ ret
 
 
 // .data
-0x00000000f0000000
 0x0000000012340000
 0x000000000000abcd
+0x00000000f0000000
 
 
 // .symtab
-// st_name, bind, type, st_shndex, st_value, st_size
+// st_name, bind, type, st_shndex, st_value, st_size(.text line_count/bits)
 // line
-array,STB_GLOBAL,STT_OBJECT,.data,0,16
-bias,STB_GLOBAL,STT_OBJECT,.data,10,8
-main,STB_GLOBAL,STT_FUNC,.text,0,42
+array,STB_GLOBAL,STT_OBJECT,.data,0,2
+bias,STB_GLOBAL,STT_OBJECT,.data,2,1
+main,STB_GLOBAL,STT_FUNC,.text,0,11
 sum,STB_GLOBAL,STT_NOTYPE,SHN_UNDEF,0,0
+
+
+
+// .rel.text
+// r_row, r_col, type, sym, r_addend
+4,7,R_X86_64_PC32,0,-4
+6,7,R_X86_64_PLT32,3,-4
