@@ -12,6 +12,7 @@
 #include<headers/cpu.h>
 #include<headers/memory.h>
 #include<headers/common.h>
+#include<headers/algorithm.h>
 
 
 static void trie_dfs_print(trie_node_t *x, int level, char c);

@@ -37,10 +37,12 @@ void TestParsingOperand();
 
 
 int main() {
-    TestAddFunctionCallAndComputation();
+    // TestAddFunctionCallAndComputation();
     // TestUintstring();
     // TestParsingOperand();
-    // TestSumRecursiveCondition();
+    TestSumRecursiveCondition();
+
+    finally_cleanup();
 
     return 0;
 }

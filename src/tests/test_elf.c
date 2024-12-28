@@ -10,9 +10,13 @@
 #include<stdint.h>
 #include<headers/linker.h>
 #include<headers/common.h>
+#include<headers/algorithm.h>
 
 
-
+// * static link
+// 1. parse elf file, create smap_table
+// 2. elf.sections merge to eof.segments(section to segment), combine to elf.segments runtime_address
+// 3. will elf.symbols relocation to eof.symbols(symbol to segment)
 
 
 
@@ -20,7 +24,7 @@
 int main() {
     // char buf[MAX_ELF_FILE_LENGTH][MAX_ELF_FILE_WIDTH];
 
-    elf_t src[2];
+    /*elf_t src[2];
     parse_elf("/csapp_stay/files/exe/sum.elf.txt", &src[0]);
     printf("----------------- elf seg ------------------\n");
     parse_elf("/csapp_stay/files/exe/main.elf.txt", &src[1]);
@@ -40,7 +44,19 @@ int main() {
     free_elf(&src[0]);  
     free_elf(&src[1]);
     free_elf(&dst);
+    */
+    hash_table_t *ht = hashtable_construct(2);
+
+    hashtable_insert(ht, "hello", 7);
+    hashtable_insert(ht, "world", 5);
+    hashtable_insert(ht, "wchlssa", 7);
+    hashtable_insert(ht, "wdadwww", 5);
+    hashtable_insert(ht, "wchladscx", 9);
 
     
+    hashtable_print(ht);    
+
+    hashtable_free(ht);
+
     return 0;
 }

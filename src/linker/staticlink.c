@@ -16,6 +16,7 @@
 #include<string.h>
 #include<assert.h>
 #include<headers/instruction.h>
+#include<headers/cpu.h>
 #include<headers/linker.h>
 #include<headers/common.h>
 
