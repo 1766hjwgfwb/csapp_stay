@@ -8,6 +8,7 @@
 #define ALGORITHM_H
 
 
+#include<stdint.h>
 
 
 //* =========================== */
@@ -18,7 +19,7 @@
 // * trie - prefix tree
 typedef struct TRIE_NODE_STRUCT {
     // 128 is ascll code index
-    struct TRIE_NODE_STRUCT* next[128];
+    struct TRIE_NODE_STRUCT* next[37];
     uint64_t address;
 }trie_node_t;
 
@@ -32,29 +33,39 @@ void trie_print(trie_node_t *root);
 
 
 // * hash table
+typedef struct Pair {
+    int key;          // k-v pair key
+    int val;
+}pair_t;
+
+
 typedef struct {
-    int localdepth;     // local depth of this bucket
-    int counter;
-    char **karray;      // key array, Multiple key value
-    uint64_t *varray;   // value array, Multiple key value
+    int localdepth;     // local depth of this bucket, same localdepth bits int the one bucket
+    int counter;        // current number of elements in this bucket
+    int capacity;       // maximum number of elements in this bucket
+    // char **karray;      // key array, Multiple key value
+    // uint64_t *varray;   // value array, Multiple key value
+    pair_t *data;        // key-value pairs array, Single key value
 }bucket_t;
 
 typedef struct {
-    int size;           // bucket number
-    int num;            // current hashtable element number
+    int bucket_capacity;           // bucket number
+    // int num;            // current hashtable element number
+    int directory_size;           // directory size, need Dynamic growth
     int globaldepth;    
 
-    bucket_t *barry;    // hash global depth, need Dynamic growth
+    bucket_t **directory;    // hash global depth, need Dynamic growth
 }hash_table_t;
 
 
 // public
 hash_table_t *hashtable_construct(int bsize);
 void hashtable_free(hash_table_t *tab);
-int hashtable_get(hash_table_t *tab, char *key, uint64_t *val);
-int hashtable_insert(hash_table_t *tab, char *key, uint64_t val);
+int hashtable_get(hash_table_t *tab, int key, int *val);
+int hashtable_insert(hash_table_t *tab_addr, int key, int val);
+int hashtable_delete(hash_table_t *tab, int key);
 void hashtable_print(hash_table_t *tab);
-void hashtable_expand(hash_table_t *tab);
+
 
 
 

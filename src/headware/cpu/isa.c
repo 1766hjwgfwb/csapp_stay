@@ -40,12 +40,12 @@ static uint64_t decode_operand(od_t *od);
 
 // * trie mothods
 static void lazy_init_trie();
-uint64_t try_get_from_trie(trie_node_t **root, char *key);
+static uint64_t try_get_from_trie(trie_node_t **root, char *key);
 static void trie_cleanup(); 
 
 // * trie reconfig
-trie_node_t *register_mapping = NULL;
-trie_node_t *operator_mapping = NULL;
+static trie_node_t *register_mapping = NULL;
+static trie_node_t *operator_mapping = NULL;
 
 
 
@@ -254,7 +254,7 @@ static void lazy_init_trie() {
 }
 
 
-uint64_t try_get_from_trie(trie_node_t **root, char *key) {
+static uint64_t try_get_from_trie(trie_node_t **root, char *key) {
     // * lazy init trie
     if (*root == NULL) {
         lazy_init_trie();
@@ -697,7 +697,8 @@ static void call_handler(od_t *src_od, od_t *dst_od) {
     cpu_pc.rip = src;
     // todo 
     // elf重定位引用时会相对偏移量 这里需要修改
-
+    // refaddr = ADDR(s) + r.offset
+    // cpu.rip = cpu.rip + (ADDR(r.symbol) + r.addend - refaddr)
 
     // reset_cflags(cr);
     cpu_flags.flag_value = 0;

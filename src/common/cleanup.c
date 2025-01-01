@@ -67,4 +67,7 @@ void finally_cleanup() {
     for (int i = 0; i < events_count; i++) { 
         (*events[i])();  // call each cleanup event
     }
+
+    // events[i] no malloc, so no need to free it here
+    free(events);  // free events array
 }

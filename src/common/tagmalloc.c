@@ -4,3 +4,5 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
+
+// manage malloc and free for tags (GC)
