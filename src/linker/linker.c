@@ -4,13 +4,13 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<assert.h>
-#include<dlfcn.h>
-#include<headers/linker.h>
-#include<headers/common.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <dlfcn.h>
+#include "headers/linker.h"
+#include "headers/common.h"
 
 const char *EXECUTABLE_DIR = "/csapp_stay/files/exe";
 

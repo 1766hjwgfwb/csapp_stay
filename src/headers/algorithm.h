@@ -8,18 +8,20 @@
 #define ALGORITHM_H
 
 
-#include<stdint.h>
+#include <stdint.h>
 
 
 //* =========================== */
 //* ===== data structres ====== */
 //* =========================== */
 
+#define MAX_TRIE_NODE_NUM (37)
+
 
 // * trie - prefix tree
 typedef struct TRIE_NODE_STRUCT {
     // 128 is ascll code index
-    struct TRIE_NODE_STRUCT* next[37];
+    struct TRIE_NODE_STRUCT* next[MAX_TRIE_NODE_NUM];
     uint64_t address;
 }trie_node_t;
 
@@ -34,8 +36,8 @@ void trie_print(trie_node_t *root);
 
 // * hash table
 typedef struct Pair {
-    int key;          // k-v pair key
-    int val;
+    char* key;          // k-v pair key
+    uint64_t val;
 }pair_t;
 
 
@@ -48,7 +50,8 @@ typedef struct {
     pair_t *data;        // key-value pairs array, Single key value
 }bucket_t;
 
-typedef struct {
+
+typedef struct Hash_Table {
     int bucket_capacity;           // bucket number
     // int num;            // current hashtable element number
     int directory_size;           // directory size, need Dynamic growth
@@ -58,12 +61,15 @@ typedef struct {
 }hash_table_t;
 
 
+extern hash_table_t *link_constant_dict;
+
+
 // public
 hash_table_t *hashtable_construct(int bsize);
 void hashtable_free(hash_table_t *tab);
-int hashtable_get(hash_table_t *tab, int key, int *val);
-int hashtable_insert(hash_table_t *tab_addr, int key, int val);
-int hashtable_delete(hash_table_t *tab, int key);
+int hashtable_get(hash_table_t *tab, char* key, uint64_t *val);
+int hashtable_insert(hash_table_t *tab_addr, char* key, uint64_t val);
+int hashtable_delete(hash_table_t *tab, char* key);
 void hashtable_print(hash_table_t *tab);
 
 

@@ -6,23 +6,30 @@
 
 
 
-#include<stdio.h>
-#include<assert.h>
-#include<stdlib.h>
-#include<string.h>
-#include<stdint.h>
-#include<stdbool.h>
-#include<headers/common.h>
-#include<headers/algorithm.h>
+#include <stdio.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "headers/common.h"
+#include "headers/algorithm.h"
 
 
 
 //internal function
-static int hash_function_index(hash_table_t *ht, int key);
+
+static int hash_function_index(hash_table_t *ht, char* key);
+static unsigned int BKDRHash(char *str);
+static uint64_t hash_function(char *str);
 static uint64_t lowbits_n(uint64_t num, int length);
+
+
 static bucket_t* create_bucket(int depth, int capacity);
+
 static void split_bucket(hash_table_t *table, int index);
 static void merge_buckets(hash_table_t *table);
+
 static void free_bucket(bucket_t *bucket);
 
 static void hashtable_print_sorted(hash_table_t *tab);
@@ -30,7 +37,7 @@ static int compare_int(const void *a, const void *b);
 
 
 
-/*static uint64_t hash_function(char *str)
+static uint64_t hash_function(char *str)
 {
     int p = 31;
     int m = 1000000007;
@@ -43,18 +50,33 @@ static int compare_int(const void *a, const void *b);
         k = (k * p) % m;
     }
     return v;
-}*/
-static int hash_function_index(hash_table_t *ht, int key) {
-    int mask = (1 << ht->globaldepth) - 1;  // Mask based on global depth
-    return key & mask;
 }
 
+
+static int hash_function_index(hash_table_t *ht, char* key) {
+    uint64_t hash_value = hash_function(key);
+    int mask = (1 << ht->globaldepth) - 1;  // Mask based on global depth
+    return hash_value & mask;
+}
 
 
 static uint64_t lowbits_n(uint64_t num, int length)
 {
     uint64_t mask = ~(0xffffffffffffffff << length);
     return num & mask;
+}
+
+
+static unsigned int BKDRHash(char *str) {
+    unsigned int seed = 131; // 31 131 1313 13131 131313 etc..
+    unsigned int hash = 0;
+
+    while (*str) {
+        hash = hash * seed + (*str);
+        str++;
+    }
+
+    return hash;
 }
 
 
@@ -77,6 +99,9 @@ static bucket_t* create_bucket(int depth, int capacity) {
 static void free_bucket(bucket_t *bucket) {
     if (bucket != NULL) {
         if (bucket->data != NULL) {
+            for (int i = 0; i < bucket->counter; ++ i)
+                free(bucket->data[i].key);  // free char* key
+
             free(bucket->data);
         }
         free(bucket);
@@ -139,27 +164,38 @@ void hashtable_free(hash_table_t *tab) {
 }
 
 
-int hashtable_insert(hash_table_t *tab_addr, int key, int val) {
+int hashtable_insert(hash_table_t *tab_addr, char* key, uint64_t val) {
     // get index
     int index = hash_function_index(tab_addr, key);
     bucket_t *bucket = tab_addr->directory[index];
 
+
+    // printf("idnex: %d\n", index);
+
     // bucket is full, split
-    if (bucket->counter >= bucket->capacity) {
-        // first split
-        split_bucket(tab_addr, index);
+    while (1) {
+        if (bucket->counter >= bucket->capacity) {
+            // first split
+            split_bucket(tab_addr, index);
 
-        // hashtable_insert(tab_addr, key, val);
-        while (hashtable_insert(tab_addr, key, val) == 0) {}
-    } else {
-        // insert k-v pair
-        bucket->data[bucket->counter].key = key;
-        bucket->data[bucket->counter].val = val;
-        bucket->counter++;
-        return 1;
+            // hashtable_insert(tab_addr, key, val);
+
+            index = hash_function_index(tab_addr, key);
+            bucket = tab_addr->directory[index];
+        } else {
+            // insert k-v pair
+            bucket->data[bucket->counter].key = malloc(strlen(key) + 1);
+
+            if (!bucket->data[bucket->counter].key)
+                return 0;
+
+            strcpy(bucket->data[bucket->counter].key, key);
+            // bucket->data[bucket->counter].key = key;
+            bucket->data[bucket->counter].val = val;
+            bucket->counter++;
+            return 1;
+        }
     }
-
-    return 0;
 }
 
 
@@ -172,6 +208,7 @@ static void split_bucket(hash_table_t *table, int index) {
     // get old bucket
     bucket_t *old_bucket = table->directory[index];
     int old_localdepth = old_bucket->localdepth;
+
 
     // check if need to double capacity
     if (old_localdepth == table->globaldepth) {
@@ -199,6 +236,7 @@ static void split_bucket(hash_table_t *table, int index) {
     // create new bucket
     // current old bucket split to two new bucket
     bucket_t *new_bucket = create_bucket(old_localdepth + 1, table->bucket_capacity);
+    new_bucket->counter = 0;
 
     old_bucket->localdepth++;
 
@@ -220,7 +258,9 @@ static void split_bucket(hash_table_t *table, int index) {
     old_bucket->counter = 0;
 
     // * rehash all key-value pair to old or new bucket
-    for (int i = 0; i < old_couter; i++) {
+
+    // * int - int k-v pair
+    /*for (int i = 0; i < old_couter; i++) {
         // int key = keys_to_rehash_pair[i].key;
         // pair_t local_pair = keys_to_rehash_pair[i];
         pair_t local_pair = old_bucket->data[i];    // copy old data to local_pair, reallocate key-value pair
@@ -237,7 +277,38 @@ static void split_bucket(hash_table_t *table, int index) {
             old_bucket->data[old_bucket->counter].val = local_pair.val;
             old_bucket->counter++;
         }
+    }*/
+
+    // * char* - uint64_t k-v pair
+    for (int i = 0; i < old_couter; i++) {
+        // pair_t local_pair;
+        pair_t local_pair = old_bucket->data[i];
+
+        // malloc new key
+        local_pair.key = malloc(strlen(old_bucket->data[i].key) + 1);
+        assert(local_pair.key != NULL);
+
+        // copy key-value pair
+        strcpy(local_pair.key, old_bucket->data[i].key);
+        local_pair.val = old_bucket->data[i].val;
+
+        free(old_bucket->data[i].key);  // free old key
+        old_bucket->data[i].key = NULL;
+
+        // rehash key
+        if (hash_function_index(table, local_pair.key) & bit_to_check) {
+            // rehash to new bucket
+            new_bucket->data[new_bucket->counter] = local_pair;
+            new_bucket->counter++;
+        } else {
+            // rehash to old bucket
+            old_bucket->data[old_bucket->counter] = local_pair;
+            old_bucket->counter++;
+        }
+
+        // free(local_pair.key);
     }
+
 
     // free(keys_to_rehash_pair);
 
@@ -250,13 +321,17 @@ static void split_bucket(hash_table_t *table, int index) {
 }
 
 
-int hashtable_get(hash_table_t *tab, int key, int *val) {
+int hashtable_get(hash_table_t *tab, char* key, uint64_t *val) {
     // get index
     int index = hash_function_index(tab, key);
     bucket_t *bucket = tab->directory[index];
 
     for (int i = 0; i < bucket->counter; ++ i) {
-        if (bucket->data[i].key == key) {
+        // if (bucket->data[i].key == key) {
+        //     *val = bucket->data[i].val;
+        //     return 1;
+        // }
+        if (strcmp(bucket->data[i].key, key) == 0) {
             *val = bucket->data[i].val;
             return 1;
         }
@@ -267,26 +342,24 @@ int hashtable_get(hash_table_t *tab, int key, int *val) {
 }
 
 
-int hashtable_delete(hash_table_t *tab, int key) {
+int hashtable_delete(hash_table_t *tab, char* key) {
     // get index
     int idnex = hash_function_index(tab, key);
     bucket_t *bucket = tab->directory[idnex];
 
     for (int i = 0; i < bucket->counter; ++ i) {
-        if (bucket->data[i].key == key) {
+        // if (bucket->data[i].key == key)
+        if (strcmp(bucket->data[i].key, key) == 0) {
             // delete k-v pair
 
-            // scan and shift all key-value pair
-            /* for (int j = i; j < bucket->counter - 1; ++ j) {
-                bucket->data[j] = bucket->data[j + 1];
-            }
-
-            bucket->counter--;
-            return 1;*/
-
             // swap with last pair
+            
+            free(bucket->data[i].key);  // free key
             bucket->data[i] = bucket->data[bucket->counter - 1];
             bucket->counter--;
+
+            // free(bucket->data[bucket->counter].key);  // free last key
+            // bucket->data[bucket->counter].key = NULL;
             return 1;
         }
     }
@@ -296,46 +369,46 @@ int hashtable_delete(hash_table_t *tab, int key) {
 
 
 void hashtable_print(hash_table_t *tab) {
-    // printf("Global: %d\n", tab->globaldepth);
-    // for (int i = 0; i < tab->directory_size; ++ i) {
-    //     printf("(bucket:%d, localdepth:%d)", i, tab->directory[i]->localdepth);
-    //     for (int j = 0; j < tab->directory[i]->counter; ++ j) {
-    //         printf(" %d ", tab->directory[i]->data[j].key);
-    //     }
-    //     // printf("counter:%d\n", tab->directory[i]->counter);
-    //     printf("\n");
-    // }
+    printf("Global: %d\n", tab->globaldepth);
+    for (int i = 0; i < tab->directory_size; ++ i) {
+        printf("(bucket:%d, localdepth:%d)", i, tab->directory[i]->localdepth);
+        for (int j = 0; j < tab->directory[i]->counter; ++ j) {
+            printf(" %s ", tab->directory[i]->data[j].key);
+        }
+        // printf("counter:%d\n", tab->directory[i]->counter);
+        printf("\n");
+    }
 
-    hashtable_print_sorted(tab);
+    // hashtable_print_sorted(tab);
 }
 
 
 static void hashtable_print_sorted(hash_table_t *tab) {
     assert(tab != NULL);
 
-    printf("Global: %d\n", tab->globaldepth);
+    // printf("Global: %d\n", tab->globaldepth);
 
-    for (int i = 0; i < tab->directory_size; ++i) {
-        printf("(bucket:%d, localdepth:%d) ", i, tab->directory[i]->localdepth);
+    // for (int i = 0; i < tab->directory_size; ++i) {
+    //     printf("(bucket:%d, localdepth:%d) ", i, tab->directory[i]->localdepth);
 
-        // copy keys to temporary array
-        int *keys = (int *) malloc(tab->directory[i]->counter * sizeof(int));
-        assert(keys != NULL); // 断言 malloc 成功
-        for (int j = 0; j < tab->directory[i]->counter; ++j) {
-            keys[j] = tab->directory[i]->data[j].key;
-        }
+    //     // copy keys to temporary array
+    //     int *keys = (int *) malloc(tab->directory[i]->counter * sizeof(int));
+    //     assert(keys != NULL); // 断言 malloc 成功
+    //     for (int j = 0; j < tab->directory[i]->counter; ++j) {
+    //         keys[j] = tab->directory[i]->data[j].key;
+    //     }
 
-        // sort keys, use qsort
-        qsort(keys, tab->directory[i]->counter, sizeof(int), compare_int); 
+    //     // sort keys, use qsort
+    //     qsort(keys, tab->directory[i]->counter, sizeof(int), compare_int); 
 
-        // print sorted keys
-        for (int j = 0; j < tab->directory[i]->counter; ++j) {
-            printf("%d ", keys[j]);
-        }
-        printf("\n");
+    //     // print sorted keys
+    //     for (int j = 0; j < tab->directory[i]->counter; ++j) {
+    //         printf("%d ", keys[j]);
+    //     }
+    //     printf("\n");
 
-        free(keys);
-    }
+    //     free(keys);
+    // }
 }
 
 

@@ -6,14 +6,14 @@
 
 // * Like smap mapping structure
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<assert.h>
-#include<headers/cpu.h>
-#include<headers/memory.h>
-#include<headers/common.h>
-#include<headers/algorithm.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include "headers/cpu.h"
+#include "headers/memory.h"
+#include "headers/common.h"
+#include "headers/algorithm.h"
 
 
 static void trie_dfs_print(trie_node_t *x, int level, char c);
@@ -40,7 +40,7 @@ static char get_char(int index) {
         return '%';
     else if (0 <= index && index <= 9)
         return (char)('0' + index);
-    else if (10 <= index && index <= 36)
+    else if (10 <= index && index <= 35)
         return (char)('a' + index - 10);
 
 
@@ -100,7 +100,7 @@ void trie_free(trie_node_t *root) {
     if (root == NULL)
         return;
 
-    for (int i = 0; i < 128; i++)
+    for (int i = 0; i < MAX_TRIE_NODE_NUM; i++)
         trie_free(root->next[i]);
 
     free(root);
@@ -118,7 +118,7 @@ static void trie_dfs_print(trie_node_t *x, int level, char c) {
                 printf("\t\t\t value: %ld\n", x->address);
         }
 
-        for (int i = 0; i < 36; i++)
+        for (int i = 0; i < MAX_TRIE_NODE_NUM; i++)
             trie_dfs_print(x->next[i], level + 1, get_char(i));
     }
 }

@@ -7,9 +7,9 @@
 #ifndef LINKER_H_GUARD
 #define LINKER_H_GUARD
 
-#include<stdint.h>
-#include<stdlib.h>
-
+#include <stdint.h>
+#include <stdlib.h>
+#include "headers/algorithm.h"
 
 
 #define MAX_CHAR_SECTIONS_NAME (32)
@@ -97,6 +97,7 @@ typedef struct {
     uint64_t reldata_count;
     rl_entry_t *reldata;
 }elf_t;
+
 
 
 

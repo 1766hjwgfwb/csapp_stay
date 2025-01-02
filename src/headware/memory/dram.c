@@ -5,11 +5,11 @@
  */
 
 // * Dynamic Random Access Memory
-#include<string.h>
-#include<assert.h>
-#include<headers/cpu.h>
-#include<headers/memory.h>
-#include<headers/common.h>
+#include <string.h>
+#include <assert.h>
+#include "headers/cpu.h"
+#include "headers/memory.h"
+#include "headers/common.h"
 
 /*
     x86-64 little endian integer encoding

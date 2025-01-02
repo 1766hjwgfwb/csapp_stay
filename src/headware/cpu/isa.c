@@ -4,15 +4,16 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<assert.h>
-#include<headers/cpu.h>
-#include<headers/instruction.h>
-#include<headers/memory.h>
-#include<headers/common.h>
-#include<headers/algorithm.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <stdbool.h>
+#include "headers/cpu.h"
+#include "headers/instruction.h"
+#include "headers/memory.h"
+#include "headers/common.h"
+#include "headers/algorithm.h"
 
 
 // * extern
@@ -46,6 +47,7 @@ static void trie_cleanup();
 // * trie reconfig
 static trie_node_t *register_mapping = NULL;
 static trie_node_t *operator_mapping = NULL;
+static bool trie_inited = false;
 
 
 
@@ -154,6 +156,9 @@ static void trie_cleanup() {
 
 // use trie to match register name
 static void lazy_init_trie() {
+    if (trie_inited)
+        return;
+
     // init trie
     // "%rax" -> &cpu_reg.rax
     trie_insert(&register_mapping, "%rax", (uint64_t)&(cpu_reg.rax));
@@ -248,7 +253,7 @@ static void lazy_init_trie() {
     // trie_print(register_mapping);
     // trie_print(operator_mapping);
 
-    
+    trie_inited = true;
     // add the cleanup function to events
     add_cleanup_event(&trie_cleanup);
 }
