@@ -23,6 +23,7 @@ typedef struct TRIE_NODE_STRUCT {
     // 128 is ascll code index
     struct TRIE_NODE_STRUCT* next[MAX_TRIE_NODE_NUM];
     uint64_t address;
+    int isvalid;    // todo: add more flags
 }trie_node_t;
 
 
@@ -89,11 +90,20 @@ typedef struct {
 }linkedlist_t;
 
 
+linkedlist_t *linkedlist_construct();
+void linkedlist_free(linkedlist_t *list);
+int linkedlist_add(linkedlist_t **address, uint64_t value);
+int linkedlist_delete(linkedlist_t *list, linkedlist_node_t *node);
+linkedlist_node_t *linkedlist_get(linkedlist_t *list, uint64_t value);
+linkedlist_node_t *linkedlist_next(linkedlist_t *list);
+void print_list(linkedlist_t *list);
+
+
 
 // * Dynammic array
 typedef struct {
-    uint32_t size;
-    uint32_t count;
+    uint32_t size;      // maximum number of elements in this array
+    uint32_t count;     // current number of elements in this array
     uint64_t *table;
 }array_t;
 

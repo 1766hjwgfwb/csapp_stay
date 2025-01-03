@@ -85,7 +85,7 @@ void trie_insert(trie_node_t **root, char *key, uint64_t val) {
 int trie_get(trie_node_t *root, char *key, uint64_t *val) {
     trie_node_t *p = root;
     for (int i = 0; i < strlen(key); i++) {
-        if (p == NULL)
+        if (p == NULL || p->isvalid == 0)
             return 0;
 
         p = p->next[get_index(key[i])];

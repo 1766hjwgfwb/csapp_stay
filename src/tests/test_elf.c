@@ -24,7 +24,7 @@
 int main() {
     // char buf[MAX_ELF_FILE_LENGTH][MAX_ELF_FILE_WIDTH];
 
-    elf_t src[2];
+    /*elf_t src[2];
     parse_elf("/csapp_stay/files/exe/sum.elf.txt", &src[0]);
     printf("----------------- elf seg ------------------\n");
     parse_elf("/csapp_stay/files/exe/main.elf.txt", &src[1]);
@@ -44,7 +44,39 @@ int main() {
     free_elf(&src[0]);  
     free_elf(&src[1]);
     free_elf(&dst);
-    
+    */
+
+    /*array_t *arr = array_construct(16);
+    array_insert(&arr, 1);
+    array_insert(&arr, 2);
+    array_insert(&arr, 3);
+
+
+    array_delete(arr, 3);
+
+    printf("array count: %d, size: %d\n", arr->count, arr->size);
+
+    print_array(arr);
+
+
+    array_free(arr);
+    */
+
+
+   linkedlist_t *list = linkedlist_construct();
+
+   linkedlist_add(&list, 1);
+   linkedlist_add(&list, 2);
+   linkedlist_add(&list, 3);
+   linkedlist_add(&list, 4);
+   linkedlist_add(&list, 5);
+
+
+   linkedlist_delete(list, linkedlist_get(list, 1));
+
+
+   linkedlist_free(list);
+
 
     return 0;
 }
