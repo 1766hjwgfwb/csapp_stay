@@ -9,15 +9,16 @@
 // * 3. For multiple weak symbols, any one can be chosen.
 
 
-#include<stdio.h>
-#include<stdbool.h>
-#include<stdlib.h>
-#include<stdint.h>
-#include<string.h>
-#include<assert.h>
-#include<headers/instruction.h>
-#include<headers/linker.h>
-#include<headers/common.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <assert.h>
+#include "headers/instruction.h"
+#include "headers/cpu.h"
+#include "headers/linker.h"
+#include "headers/common.h"
 
 
 #define MAX_SYMBOL_MAP_LENGHT (64)

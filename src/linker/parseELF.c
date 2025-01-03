@@ -4,15 +4,17 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<stdint.h>
-#include<string.h>
-#include<assert.h>
-#include<headers/linker.h>
-#include<headers/common.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <assert.h>
+#include "headers/linker.h"
+#include "headers/common.h"
 
 
+// * use hash table to store symbol table * 
+hash_table_t *link_constant_dict;
 
 
 static int parse_table_entry(char *str, char ***ent);
@@ -26,6 +28,8 @@ static int read_elf(const char *filename, uint64_t bufaddr);
 static void parse_reloution(char *str, rl_entry_t *rel);
 // static void free_elf(elf_t *elf);
 
+// * hash table for constant values
+static void init_constant_dict();
 
 
 static int parse_table_entry(char *str, char ***ent) {
@@ -124,7 +128,7 @@ static void parse_symtab(char *str, sym_entry_t *symtab) {
     strcpy(symtab->st_name, cols[0]);
     
     // * bind
-    if (strcmp(cols[1], "STB_GLOBAL") == 0)
+    /*if (strcmp(cols[1], "STB_GLOBAL") == 0)
         symtab->bind = STB_GLOBAL;
     else if (strcmp(cols[1], "STB_WEAK") == 0)
         symtab->bind = STB_WEAK;
@@ -133,10 +137,16 @@ static void parse_symtab(char *str, sym_entry_t *symtab) {
     else {
         debug_printf(DEBUG_LINKER, "Error: unknown bind type %s\n", cols[1]);
         exit(1);
+    }*/
+
+    uint64_t bind_value;
+    if (hashtable_get(link_constant_dict, cols[1], &bind_value) == 0) {
+        debug_printf(DEBUG_LINKER, "Error: unknown bind type %s\n", cols[1]);
+        exit(1);
     }
 
     // * type
-    if (strcmp(cols[2], "STT_NOTYPE") == 0)
+    /*if (strcmp(cols[2], "STT_NOTYPE") == 0)
         symtab->type = STT_NOTYPE;
     else if (strcmp(cols[2], "STT_OBJECT") == 0)
         symtab->type = STT_OBJECT;
@@ -144,7 +154,17 @@ static void parse_symtab(char *str, sym_entry_t *symtab) {
         symtab->type = STT_FUNC;
     else {
         debug_printf(DEBUG_LINKER, "Error: unknown type %s\n", cols[2]);
+    }*/
+    
+    symtab->bind = (st_bind_t)bind_value;
+    
+    uint64_t type_value;
+    if (hashtable_get(link_constant_dict, cols[2], &type_value) == 0) {
+        debug_printf(DEBUG_LINKER, "Error: unknown type %s\n", cols[2]);
+        exit(1);
     }
+
+    symtab->type = (st_type_t)type_value;
 
     strcpy(symtab->st_shndx, cols[3]);
     symtab->st_value = string2uint(cols[4]);
@@ -253,7 +273,7 @@ static void parse_reloution(char *str, rl_entry_t *rel) {
     rel->r_col = string2uint(cols[1]);
 
     // selelct relocation type
-    if (strcmp(cols[2], "R_X86_64_PC32") == 0)
+    /*if (strcmp(cols[2], "R_X86_64_PC32") == 0)
         rel->r_type = R_X86_64_PC32;
     else if (strcmp(cols[2], "R_X86_64_32") == 0)
         rel->r_type = R_X86_64_32;
@@ -262,7 +282,16 @@ static void parse_reloution(char *str, rl_entry_t *rel) {
     else {
         debug_printf(DEBUG_LINKER, "Error: unknown relocation type %s\n", cols[2]);
         exit(1);
-    }
+    }*/
+
+   uint64_t reloc_type_value;
+   if (hashtable_get(link_constant_dict, cols[2], &reloc_type_value) == 0) {
+        debug_printf(DEBUG_LINKER, "Error: unknown relocation type %s\n", cols[2]);
+        exit(1);
+   }
+
+    rel->r_type = (reltype_t)reloc_type_value;
+
 
     rel->sym = string2uint(cols[3]);
 
@@ -285,12 +314,40 @@ void free_elf(elf_t *elf) {
 }
 
 
+static void init_constant_dict() {
+    if (link_constant_dict != NULL) {
+        return;
+    }
+
+    link_constant_dict = hashtable_construct(4);
+
+    // * add constant values to hash table
+    hashtable_insert(link_constant_dict, "STB_GLOBAL", STB_GLOBAL);
+    hashtable_insert(link_constant_dict, "STB_WEAK", STB_WEAK);
+    hashtable_insert(link_constant_dict, "STB_LOCAL", STB_LOCAL);
+
+    hashtable_insert(link_constant_dict, "STT_NOTYPE", STT_NOTYPE);
+    hashtable_insert(link_constant_dict, "STT_OBJECT", STT_OBJECT);
+    hashtable_insert(link_constant_dict, "STT_FUNC", STT_FUNC);
+
+    hashtable_insert(link_constant_dict, "R_X86_64_PC32", R_X86_64_PC32);
+    hashtable_insert(link_constant_dict, "R_X86_64_32", R_X86_64_32);
+    hashtable_insert(link_constant_dict, "R_X86_64_PLT32", R_X86_64_PLT32);
+
+    hashtable_print(link_constant_dict); 
+}
+
+
 void parse_elf(const char *filename, elf_t *elf) {
     int line_count = read_elf(filename, (uint64_t)(&elf->buffer));
 
     // * print elf buffer
     for (int i = 0; i < line_count; i++) 
         printf("[%d]\t%s\n", i, elf->buffer[i]);
+
+
+    // * init constant hash table
+    init_constant_dict();
 
     // * buffer[1] = section table count
     elf->sh_count = string2uint(elf->buffer[1]);
@@ -383,4 +440,8 @@ void write_eof(const char *filename, elf_t *eof) {
         fprintf(fp, "%s\n", eof->buffer[i]);
 
     fclose(fp);
+
+
+    // free hash table
+    hashtable_free(link_constant_dict);
 }

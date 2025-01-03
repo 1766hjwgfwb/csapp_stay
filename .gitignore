@@ -5,4 +5,5 @@ src/temp
 *.md
 !README.md
 *.py
+bin
 build

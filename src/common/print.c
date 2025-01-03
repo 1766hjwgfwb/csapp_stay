@@ -4,10 +4,10 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
-#include<stdarg.h>
-#include<stdio.h>
-#include<assert.h>
-#include<headers/common.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <assert.h>
+#include "headers/common.h"
 
 
 // @brief

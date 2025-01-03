@@ -4,11 +4,11 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
-#include<stdio.h>
-#include<string.h>
-#include<headers/cpu.h>
-#include<headers/memory.h>
-#include<headers/common.h>
+#include <stdio.h>
+#include <string.h>
+#include "headers/cpu.h"
+#include "headers/memory.h"
+#include "headers/common.h"
 
 
 
@@ -37,10 +37,12 @@ void TestParsingOperand();
 
 
 int main() {
-    TestAddFunctionCallAndComputation();
+    // TestAddFunctionCallAndComputation();
     // TestUintstring();
     // TestParsingOperand();
-    // TestSumRecursiveCondition();
+    TestSumRecursiveCondition();
+
+    finally_cleanup();
 
     return 0;
 }

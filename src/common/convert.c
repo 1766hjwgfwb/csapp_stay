@@ -4,11 +4,11 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<stdint.h>
-#include<string.h>
-#include<headers/common.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include "headers/common.h"
 
 
 // * convert uint32_t to float
