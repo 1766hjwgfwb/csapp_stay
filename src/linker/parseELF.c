@@ -19,6 +19,7 @@ hash_table_t *link_constant_dict;
 
 static int parse_table_entry(char *str, char ***ent);
 static void free_table_entry(char **ent, int n);
+static void free_tag(char **ent, int n);
 static void parse_sh(char *str, st_entry_t *sh);
 static void parse_symtab(char *str, sym_entry_t *symtab);
 static void print_sh_entry(st_entry_t *sh);
@@ -43,6 +44,8 @@ static int parse_table_entry(char *str, char ***ent) {
 
     // char ** p = malloc(*p)
     char **arr = malloc(count_col * sizeof(char *));
+    // * add tag block to linked list
+    // char **arr = tag_malloc(count_col * sizeof(char *), "parse_table_entry");
 
     if (arr == NULL) {
         debug_printf(DEBUG_LINKER, "Error: malloc failed\n");
@@ -62,6 +65,7 @@ static int parse_table_entry(char *str, char ***ent) {
             
             // * malloc and copy, update col_index and col_width
             char *col = malloc((col_width + 1) * sizeof(char));
+            // char *col = tag_malloc((col_width + 1) * sizeof(char), "parse_table_entry");
             for (int j = 0; j < col_width; j++)
                 col[j] = col_buf[j];
 
@@ -97,6 +101,16 @@ static void free_table_entry(char **ent, int n) {
 }
 
 
+static void free_tag(char **ent, int n) {
+    for (int i = 0; i < n; i++) { 
+        if (ent[i]!= NULL)
+            tag_free(ent[i]);
+    }
+
+    tag_free(ent);
+}
+
+
 static void parse_sh(char *str, st_entry_t *sh) {
     char **cols;
     // why we need to &cols?
@@ -114,6 +128,7 @@ static void parse_sh(char *str, st_entry_t *sh) {
 
 
     free_table_entry(cols, n_cols);
+    // free_tag(cols, n_cols);
 }
 
 
@@ -171,6 +186,7 @@ static void parse_symtab(char *str, sym_entry_t *symtab) {
     symtab->st_size = string2uint(cols[5]);
 
     free_table_entry(cols, n_cols);
+    // free_tag(cols, n_cols);
 }
 
 
@@ -299,6 +315,7 @@ static void parse_reloution(char *str, rl_entry_t *rel) {
     rel->r_addend = *(int64_t*)&bitmap;     // convert bitmap to int64_t
 
     free_table_entry(cols, num_cols);
+    // free_tag(cols, num_cols);
 }
 
 
@@ -307,10 +324,18 @@ void free_elf(elf_t *elf) {
     assert(elf->sht != NULL);
     assert(elf->symt != NULL);
 
-    free(elf->sht);
-    free(elf->symt);
-    free(elf->reltext);
-    free(elf->reldata);
+    // free(elf->sht);
+    // free(elf->symt);
+    // free(elf->reltext);
+    // free(elf->reldata);
+
+    tag_free(elf->sht);
+    tag_free(elf->symt);
+
+    tag_free(elf->reltext);
+
+    tag_free(elf->reldata);
+    // tag_free(elf);   
 }
 
 
@@ -351,7 +376,8 @@ void parse_elf(const char *filename, elf_t *elf) {
 
     // * buffer[1] = section table count
     elf->sh_count = string2uint(elf->buffer[1]);
-    elf->sht = malloc(elf->sh_count * sizeof(st_entry_t));
+    // elf->sht = malloc(elf->sh_count * sizeof(st_entry_t));
+    elf->sht = tag_malloc(elf->sh_count * sizeof(st_entry_t), "parse_elf");
     
     // elf->sh_count = sh_count;
     elf->line_count = line_count;
@@ -376,7 +402,8 @@ void parse_elf(const char *filename, elf_t *elf) {
 
     // * parse symbol table
     elf->sym_count = sym_sh->sh_size;   // sh_size is the line count
-    elf->symt = malloc(elf->sym_count * sizeof(sym_entry_t));
+    // elf->symt = malloc(elf->sym_count * sizeof(sym_entry_t));
+    elf->symt = tag_malloc(elf->sym_count * sizeof(sym_entry_t), "parse_elf");
 
 
     for (int i = 0; i < elf->sym_count; i++) {
@@ -393,7 +420,8 @@ void parse_elf(const char *filename, elf_t *elf) {
     // * parse relocation.text table
     if (rtext_sh != NULL) {
         elf->reltext_count = rtext_sh->sh_size;
-        elf->reltext = malloc(elf->reltext_count * sizeof(rl_entry_t));
+        // elf->reltext = malloc(elf->reltext_count * sizeof(rl_entry_t));
+        elf->reltext = tag_malloc(elf->reltext_count * sizeof(rl_entry_t), "parse_elf");
 
         for (int i = 0; i < elf->reltext_count; i++) { 
             parse_reloution(elf->buffer[rtext_sh->sh_offset + i], &(elf->reltext[i]));
@@ -411,7 +439,8 @@ void parse_elf(const char *filename, elf_t *elf) {
     // * parse relocation.data table
     if (rdata_sh != NULL) {
         elf->reldata_count = rdata_sh->sh_size;
-        elf->reldata = malloc(elf->reldata_count * sizeof(rl_entry_t));
+        // elf->reldata = malloc(elf->reldata_count * sizeof(rl_entry_t));
+        elf->reldata = tag_malloc(elf->reldata_count * sizeof(rl_entry_t), "parse_elf");
 
         for (int i = 0; i < elf->reldata_count; i++) {
             parse_reloution(elf->buffer[rdata_sh->sh_offset + i], &(elf->reldata[i]));
@@ -424,6 +453,8 @@ void parse_elf(const char *filename, elf_t *elf) {
         elf->reldata_count = 0;
         elf->reldata = NULL;
     }
+
+    tag_sweep("parse_table_entry");
 }
 
 
