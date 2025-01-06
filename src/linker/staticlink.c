@@ -358,7 +358,9 @@ static void compute_section_header(elf_t *dst, smap_t *smap_table, int *smap_cou
 
     // wirte section header
     assert(dst->sht == NULL);
-    dst->sht = malloc(sizeof(st_entry_t) * dst->sh_count);
+    // dst->sht = malloc(sizeof(st_entry_t) * dst->sh_count);
+    dst->sht = tag_malloc(sizeof(st_entry_t) * dst->sh_count, "dst->sht");
+
 
 
     // wirte .text, .rodata, .data
@@ -593,7 +595,8 @@ void link_elf(elf_t **srcs, int num_srcs, elf_t *dst) {
     }
 
     dst->sym_count = smap_count;
-    dst->symt = malloc(sizeof(sym_entry_t) * dst->sym_count);    
+    // dst->symt = malloc(sizeof(sym_entry_t) * dst->sym_count);
+    dst->symt = tag_malloc(sizeof(sym_entry_t) * dst->sym_count, "dst->symt");    
 
 
     // compute dst section

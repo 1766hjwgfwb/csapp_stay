@@ -55,7 +55,12 @@ void finally_cleanup();
 
 
 
-
+//* ============================= */
+//*     wrap of the memory        */
+//* ============================= */
+void *tag_malloc(uint64_t size, char *tagstr);
+int tag_free(void *ptr);
+void tag_sweep(char *tagstr);
 
 
 

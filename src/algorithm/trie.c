@@ -49,6 +49,7 @@ static char get_char(int index) {
 
 
 void trie_insert(trie_node_t **root, char *key, uint64_t val) {
+
     trie_node_t **p = root;
     for (int i = 0; i < strlen(key); i++) {
         if (*p == NULL)
@@ -82,10 +83,37 @@ void trie_insert(trie_node_t **root, char *key, uint64_t val) {
 }
 
 
+// * add isvalid flag to check if the node is valid or not
+int trie_insert_with_isvalid(trie_node_t **root, char *key, uint64_t val) {
+    trie_node_t *p = *root;
+
+    if (p == NULL)
+        return -1;
+
+    for (int i = 0; i < strlen(key); i++) {
+        p->isvalid = 1;   // set root node isvalid flag to 1
+
+        int id = get_index(key[i]);
+        if (p->next[id] == NULL) {
+            p->next[id] = malloc(sizeof(trie_node_t));
+            p->next[id]->isvalid = 0;   // set new node isvalid flag to 0
+            p->next[id]->address = 0;
+        }
+
+        p = p->next[id];
+    }
+
+    p->address = val; // set the value to the last node
+    p->isvalid = 1;   // set last node isvalid flag to 1
+
+    return 1;
+}
+
+
 int trie_get(trie_node_t *root, char *key, uint64_t *val) {
     trie_node_t *p = root;
     for (int i = 0; i < strlen(key); i++) {
-        if (p == NULL || p->isvalid == 0)
+        if (p == NULL)  // add isvalid || isvalid == 0
             return 0;
 
         p = p->next[get_index(key[i])];

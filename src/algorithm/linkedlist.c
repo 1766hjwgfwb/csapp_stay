@@ -54,7 +54,7 @@ void linkedlist_free(linkedlist_t *list) {
         return;
     }
 
-    print_node(list);
+    // print_node(list);
 
     // free the memory of the linked list
     linkedlist_node_t *current = list->head;
