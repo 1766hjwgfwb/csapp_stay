@@ -11,7 +11,7 @@
 
 
 #include <stdint.h>
-#include "headers/cpu.h"
+// #include "headers/cpu.h"
 
 
 
@@ -41,14 +41,19 @@ extern uint8_t pm[PHYSICAL_MEMORY_SPACE];
 
 // * @brief 模拟器中的寄存器均为模拟(虚拟)地址  寻址操作使用 va2pa + 偏移量赋予物理地址 pm[paddrs]
 // * I/O
-uint64_t read64bits_dram(uint64_t paddr);
+uint64_t cpu_read64bits_dram(uint64_t paddr);
 
-void write64bits_dram(uint64_t paddr, uint64_t data);
+void cpu_write64bits_dram(uint64_t paddr, uint64_t data);
 
 
 // * ldd " code segment " to physics memory
-void readinst_dram(uint64_t paddr, char *buf);
-void writeinst_dram(uint64_t paddr, const char *str);
+void cpu_readinst_dram(uint64_t paddr, char *buf);
+void cpu_writeinst_dram(uint64_t paddr, const char *str);
+
+
+
+void bus_read_cacheline(uint64_t paddr, uint8_t *block);
+void bus_write_cacheline(uint64_t paddr, uint8_t *block);
 
 
 

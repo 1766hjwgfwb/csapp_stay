@@ -11,23 +11,39 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "headers/address.h"
 #include "headers/memory.h"
 
+/*
+    S = 2^s, s = 6
+    B = 2^b, b = 6
+    E is defined in sram.c, 8
+    For correctness verification, E can be 1, 2, 8, 1024
+    monitoring:
+    cache_hit_count
+    cache_miss_count
+    cache_evict_count
+    dirty_bytes_in_cache_count
+    dirty_bytes_evicted_count
+ */
 
+#ifdef CACHE_SIMULATION_VERIFICATION
+
+int cache_hit_count = 0;
+int cache_miss_count = 0;
+int cache_evict_count = 0;
+int dirty_bytes_in_cache_count = 0;
+int dirty_bytes_evicted_count = 0;
+
+char trace_buf[20];
+char *trace_ptr = (char *)&trace_buf;
+#else
 #define NUM_CACHE_LINE_PER_SET (8)
 
-
-/*
- * internal I/O Bus functions
-*/
-static void bus_write_from_sram_to_dram(address_t paddr, uint8_t *block);
-static void bus_read_from_dram_to_sram(address_t paddr, uint8_t *block);
-
-
-// read-write cache
-uint8_t sram_cache_read(address_t paddr);
-void sram_cache_write(address_t paddr, uint8_t data);
+#endif
 
 
 // write-back and write-allocate
@@ -39,20 +55,11 @@ typedef enum {
 }sram_cacheline_state_t;
 
 
-// write-through and no-write-allocate
-/*
-typedef enum {
-    CACHE_LINE_INVALID2 = 0,
-    CACHE_LINE_CLEAN2 = 1,
-    CACHE_LINE_DIRTY2 = 2,
-}sram_cacheline_state_t2;
-*/
-
 
 typedef struct {
     sram_cacheline_state_t state;
 
-    uint64_t time;  //used for LRU algorithm
+    int time;  //used for LRU algorithm
     uint64_t tag;
     // i7 use 40 bytes
     uint8_t blcok[(1 << SRAM_CACHE_OFFSET_LEN)];
@@ -75,9 +82,13 @@ typedef struct {
 static sram_cache_t cache;
 
 
-uint8_t sram_cache_read(address_t paddr) {
+uint8_t sram_cache_read(uint64_t paddr_value) {
+    address_t paddr = {
+        .paddr_value = paddr_value,
+    };
+
     // set index
-    sram_cacheset_t set = cache.sets[paddr.CI];
+    sram_cacheset_t *set = &cache.sets[paddr.CI];
 
     // update LRU time
     sram_cacheline_t *victim = NULL;
@@ -85,41 +96,57 @@ uint8_t sram_cache_read(address_t paddr) {
     int max_time = -1;
 
     for (int i = 0; i < NUM_CACHE_LINE_PER_SET; i++) {
-        set.lines[i].time++;
+        // get cache line address
+        sram_cacheline_t *line = &(set->lines[i]);
+
+        line->time++;
+
         // find the victim cache line
-        if (max_time < set.lines[i].time) {
+        if (max_time < line->time) {
             // select this line as victim by LRU algorithm
             // replace it when all lines are invalid
-            victim = &set.lines[i];
-            max_time = set.lines[i].time;
+            victim = line;
+            max_time = line->time;
         }
 
-        if (set.lines[i].state == CACHE_LINE_INVALID) {
+        if (line->state == CACHE_LINE_INVALID) {
             // exist one invalid cache line as candidate for cache miss
-            invalid = &set.lines[i];
+            invalid = line;
         }
     }
 
-    // try cache hit
+    // * try cache hit
     for (int i = 0; i < NUM_CACHE_LINE_PER_SET; i++) {
         // get cache line
-        sram_cacheline_t line = set.lines[i];
+        // sram_cacheline_t line = set.lines[i];
+        sram_cacheline_t *line = &(set->lines[i]);
 
-        if (line.state != CACHE_LINE_INVALID && line.tag == paddr.CT) {
+        if (line->state != CACHE_LINE_INVALID && line->tag == paddr.CT) {
+
+    #ifdef CACHE_SIMULATION_VERIFICATION
+            sprintf(trace_buf, "hit");  // hit ++
+            cache_hit_count++;
+    #endif
             // cache hit, return data (one byte)
             // set time to 0, update LRU
-            line.time = 0;
+            line->time = 0;
             // find the cache byte
-            return line.blcok[paddr.CO];
+            return line->blcok[paddr.CO];
         }
     }
 
     // * cache miss, fetch data from memory
+    #ifdef CACHE_SIMULATION_VERIFICATION
+        sprintf(trace_buf, "miss");  // miss ++
+        cache_miss_count++;
+    #endif
     
     // try to fine one free cache line
     if (invalid != NULL) {
+    #ifndef CACHE_SIMULATION_VERIFICATION
         // load data from memory to invalid cache line
-        bus_read_from_dram_to_sram(paddr, &invalid->blcok);
+        bus_read_cacheline(paddr.paddr_value, invalid->blcok);
+    #endif
         
         // update cache line state
         invalid->state = CACHE_LINE_CLEAN;
@@ -136,21 +163,38 @@ uint8_t sram_cache_read(address_t paddr) {
     assert(victim != NULL);
     // no free cache line, use LRU policy to replace cache line
     if (victim->state == CACHE_LINE_DIRTY) {
+    #ifndef CACHE_SIMULATION_VERIFICATION
         // * "write-back" the dirty cache line to dram
-        bus_write_from_sram_to_dram(paddr, victim);
+        bus_write_cacheline(paddr.paddr_value, victim->blcok);
+    #else
+        // have data consistency, dirty bytes in cache count
+        dirty_bytes_evicted_count += (1 << SRAM_CACHE_OFFSET_LEN);
+        dirty_bytes_in_cache_count -= (1 << SRAM_CACHE_OFFSET_LEN);
+    #endif
 
         // update victim cache line state
-        victim->state = CACHE_LINE_INVALID;
+        // victim->state = CACHE_LINE_INVALID;
     }
+
+    #ifdef CACHE_SIMULATION_VERIFICATION
+        // discard this victim directly "CACHE_LINE_CLEAN"
+        sprintf(trace_buf, "miss eviction");
+        cache_evict_count++;
+    #endif
     
     // if CACHE_LINE_CLEAN discard this victim directly
-    victim->state = CACHE_LINE_CLEAN;
+    victim->state = CACHE_LINE_INVALID;
 
+    #ifndef CACHE_SIMULATION_VERIFICATION
     // read from dram
-    bus_read_from_dram_to_sram(paddr, &victim->blcok);
+        bus_read_cacheline(paddr.paddr_value, victim->blcok);
+    #endif
 
     // update LRU time
     victim->time = 0;
+
+    // update cache line state, from dram to cache
+    victim->state = CACHE_LINE_CLEAN;
 
     // update cache line tag
     victim->tag = paddr.CT;
@@ -160,77 +204,141 @@ uint8_t sram_cache_read(address_t paddr) {
 }
 
 
-void sram_cache_write(address_t paddr, uint8_t data) {
+void sram_cache_write(uint64_t paddr_value, uint8_t data) {
+    address_t paddr = {
+        .paddr_value = paddr_value,
+    };
+
     // set index
-    sram_cacheset_t set = cache.sets[paddr.CI];
+    sram_cacheset_t *set = &(cache.sets[paddr.CI]);
+
+    // update LRU time
+    sram_cacheline_t *victim = NULL;
+    sram_cacheline_t *invalid = NULL;
+    int max_time = -1;
+
     for (int i = 0; i < NUM_CACHE_LINE_PER_SET; i++) {
-        // get cache line
-        sram_cacheline_t line = set.lines[i];
+        // get cache line address
+        sram_cacheline_t *line = &(set->lines[i]);
 
-        if (line.state != CACHE_LINE_INVALID && line.tag == paddr.CT) {
-            // cache hit, return data (one byte)
-            // todo: update LRU
-            line.blcok[paddr.CO] = data;
+        // update LRU time
+        line->time++;
 
-            // * if write-through, no-write-allocate, write data to memory
-            // get the cache base address
-            uint64_t base = (paddr.address_value >> SRAM_CACHE_OFFSET_LEN) << SRAM_CACHE_OFFSET_LEN;
+        if (max_time < line->time) {
+            // select this line as victim by LRU algorithm
+            // replace it when all lines are invalid
+            victim = line;
+            max_time = line->time;
+        }
 
-            for (int j = 0; j < ((1 << SRAM_CACHE_OFFSET_LEN) / sizeof(uint64_t)); j++) { 
-                // base start 0, 8, 16, 24, 32, 40, 48, 56
-                // write 64 bits data to dram
-                // *(ui64_t *) can handle 64-bit data of uint8* block(one byte per block)
-                write64bits_dram(base + (j * sizeof(uint64_t)), *(uint64_t *)&line.blcok[j * sizeof(uint64_t)]);
-            }
-            return;
+        if (line->state == CACHE_LINE_INVALID) {
+            // exist one invalid cache line as candidate for cache miss
+            invalid = line;
         }
     }
 
+    // try cache hit
+    for (int i = 0; i < NUM_CACHE_LINE_PER_SET; i++) {
+        // get cache line address, becasue we need to update cache line data
+        // sram_cacheline_t line = set.lines[i];
+        sram_cacheline_t *line = &(set->lines[i]);
+
+        if (line->state != CACHE_LINE_INVALID && line->tag == paddr.CT) {
+    #ifdef CACHE_SIMULATION_VERIFICATION
+            // cache hit
+            sprintf(trace_buf, "hit");  // hit ++
+            cache_hit_count++;
+
+            if (line->state == CACHE_LINE_CLEAN) {
+                dirty_bytes_in_cache_count += (1 << SRAM_CACHE_OFFSET_LEN);
+            }
+    #endif
+
+            // update LRU time
+            line->time = 0;
+
+            line->blcok[paddr.CO] = data;
+            
+            // data 
+            line->state = CACHE_LINE_DIRTY;
+
+            return;
+        }
+    }
+ 
+    #ifdef CACHE_SIMULATION_VERIFICATION
     // cache miss, fetch data from memory
-    // todo: update LRU
+        sprintf(trace_buf, "miss");  // miss ++
+        cache_miss_count++;
+    #endif
 
-    return 0;
-}
+    // * write-allocate
 
+    // try to fine one free cache line
+    if (invalid != NULL) {
+    #ifndef CACHE_SIMULATION_VERIFICATION
+        // load data from memory to invalid cache line
+        bus_read_cacheline(paddr.paddr_value, invalid->blcok);
+    #else
+        dirty_bytes_in_cache_count += (1 << SRAM_CACHE_OFFSET_LEN);
+    #endif
 
-static void bus_write_from_sram_to_dram(address_t paddr, uint8_t *block) {
-    uint64_t size64 = sizeof(uint64_t);
+        // update cache line state
+        invalid->state = CACHE_LINE_DIRTY;
 
-    // * >> + << clean the cache line offset bits
-    // get the cache base address
-    uint64_t dram_base = ((paddr.address_value >> SRAM_CACHE_OFFSET_LEN) << SRAM_CACHE_OFFSET_LEN);
-    
-    // block pointer to base address of cache line
-    uint64_t block_base = (uint64_t)block;
+        // update LRU time
+        invalid->time = 0;
 
-    for (int i = 0; i < ((1 << SRAM_CACHE_OFFSET_LEN) / size64); i++) {
-        uint64_t dram_addr = dram_base + (i * size64);
-        uint64_t block_addr = block_base + (i * size64);
+        // update cache line tag
+        invalid->tag = paddr.CT;
 
-        // write dram data to cache line, 64 byte
-        // *(uint64_t *) can handle 64-bit data of uint8* block(one byte per block)
-        uint64_t value = *(uint64_t *)block_addr;
-        write64bits_dram(dram_addr, value);
+        // update cache line data
+        invalid->blcok[paddr.CO] = data;
+
+        return;
     }
-}
 
+    // no free cache line, use LRU policy
+    assert(victim != NULL);
 
-static void bus_read_from_dram_to_sram(address_t paddr, uint8_t *block) {
-    uint64_t size64 = sizeof(uint64_t);
-
-    // * >> + << clean the cache line offset bits
-    // get the cache base address
-    uint64_t dram_base = ((paddr.address_value >> SRAM_CACHE_OFFSET_LEN) << SRAM_CACHE_OFFSET_LEN);
-    
-    // block pointer to base address of cache line
-    uint64_t block_base = (uint64_t)block;
-
-    for (int i = 0; i < ((1 << SRAM_CACHE_OFFSET_LEN) / size64); i++) {
-        uint64_t dram_addr = dram_base + (i * size64);
-        uint64_t block_addr = block_base + (i * size64);
-
-        // read dram data to cache line, 64 byte
-        // *(uint64_t *) can handle 64-bit data of uint8* block(one byte per block)
-        *(uint64_t *)block_addr = read64bits_dram(dram_addr);
+    // if CACHE_LINE_DIRTY discard this victim directly
+    if (victim->state == CACHE_LINE_DIRTY) {
+    #ifndef CACHE_SIMULATION_VERIFICATION
+        // * "write-back" the dirty cache line to dram
+        // Write-back `data consistency`
+        bus_write_cacheline(paddr.paddr_value, victim->blcok);
+    #else
+        dirty_bytes_evicted_count += (1 << SRAM_CACHE_OFFSET_LEN);
+        dirty_bytes_in_cache_count -= (1 << SRAM_CACHE_OFFSET_LEN);
+    #endif
     }
+
+    #ifdef CACHE_SIMULATION_VERIFICATION
+    // if CACHE_LINE_CLEAN Direct update state
+        sprintf(trace_buf, "miss eviction");
+        cache_evict_count++;
+        dirty_bytes_in_cache_count += (1 << SRAM_CACHE_OFFSET_LEN);
+    #endif
+
+    // update state
+    victim->state = CACHE_LINE_INVALID;
+
+    #ifndef CACHE_SIMULATION_VERIFICATION
+    // read from dram
+    // load data from memory to victim cache line
+    bus_read_cacheline(paddr.paddr_value, victim->blcok);
+    #endif
+
+    // update cache line state
+    victim->state = CACHE_LINE_DIRTY;
+
+    // update LRU time
+    victim->time = 0;
+
+    // update cache line tag
+    victim->tag = paddr.CT;
+
+
+    // update cache line data
+    victim->blcok[paddr.CO] = data;
 }

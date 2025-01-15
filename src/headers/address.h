@@ -13,9 +13,12 @@
 
 #include <stdint.h>
 
-#define SRAM_CACHE_TAG_LEN (40)
-#define SRAM_CACHE_INDEX_LEN (6)
-#define SRAM_CACHE_OFFSET_LEN (6)
+
+#ifndef CACHE_SIMULATION_VERIFICATION
+    #define SRAM_CACHE_TAG_LEN (40)
+    #define SRAM_CACHE_INDEX_LEN (6)
+    #define SRAM_CACHE_OFFSET_LEN (6)
+#endif
 
 #define PHYSICAL_PAGE_OFFSET_LEN (12)
 #define PHYSICAL_PAGE_NUMBER_LEN (40)
