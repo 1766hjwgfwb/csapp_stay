@@ -24,13 +24,13 @@
 #define DEBUG_LOADER                (0X80)
 #define DEBUG_PARSEINST             (0X100)
 
-#define DEBUG_VERBOSE_SET          (0X141)
+#define DEBUG_VERBOSE_SET          (0X106)
 
 
 #define DEBUG_ENABLE_PAGE_CACHE     (0)
 
 
-#define DEBUG_ENABLE_SRAM_CACHE     (0)
+#define DEBUG_ENABLE_SRAM_CACHE     (1)
 
 
 // * printf wrapper

@@ -613,14 +613,14 @@ static void mov_handler(od_t *src_od, od_t *dst_od) {
         return;    
     } else if (src_od->type == REG && dst_od->type == MEM_IMM_REG1) {
         // * mov %rsi, -0x20(%rbp)
-        write64bits_dram(va2pa(dst), *(uint64_t *)src);
+        cpu_write64bits_dram(va2pa(dst), *(uint64_t *)src);
         next_rip();
         // reset_cflags(cr);
         cpu_flags.flag_value = 0;
         return;
     } else if (src_od->type == MEM_IMM_REG1 && dst_od->type == REG) {
         // * mov -0x20(%rbp), %rsi
-        *(uint64_t *)dst = read64bits_dram(va2pa(src));
+        *(uint64_t *)dst = cpu_read64bits_dram(va2pa(src));
         next_rip();
         // reset_cflags(cr);
         cpu_flags.flag_value = 0;
@@ -645,7 +645,7 @@ static void push_handler(od_t *src_od, od_t *dst_od) {
     // * e.g push %rbp
     if (src_od->type == REG) {
         cpu_reg.rsp = cpu_reg.rsp - 8;
-        write64bits_dram(va2pa(cpu_reg.rsp), *(uint64_t *)src);
+        cpu_write64bits_dram(va2pa(cpu_reg.rsp), *(uint64_t *)src);
 
         next_rip();
         // reset_cflags(cr);
@@ -659,7 +659,7 @@ static void pop_handler(od_t *src_od, od_t *dst_od) {
 
     // * pop %rbx
     if (src_od->type == REG) {
-        uint64_t val = read64bits_dram(va2pa(cpu_reg.rsp));
+        uint64_t val = cpu_read64bits_dram(va2pa(cpu_reg.rsp));
         // * pop push 约定 8字节对齐
         // * 如果函数分配了额外的栈空间,类似 `sub $0x10, rsp`,在 `pop`前要自己手动释放 `add $0x10, rsp`
         cpu_reg.rsp = cpu_reg.rsp + 8;
@@ -681,7 +681,7 @@ static void leave_handler(od_t *src_od, od_t *dst_od) {
     // * leave == mov rbp, rsp  pop rbp 结束当前函数调用 -> 退栈
     cpu_reg.rsp = cpu_reg.rbp;  // 恢复栈顶
     
-    cpu_reg.rbp = read64bits_dram(va2pa(cpu_reg.rsp));     // 恢复 rbp保存的值
+    cpu_reg.rbp = cpu_read64bits_dram(va2pa(cpu_reg.rsp));     // 恢复 rbp保存的值
 
     cpu_reg.rsp = cpu_reg.rsp + 8;
 
@@ -697,7 +697,7 @@ static void call_handler(od_t *src_od, od_t *dst_od) {
     // * call 0xxxx/function addres
     cpu_reg.rsp = cpu_reg.rsp - 8;
 
-    write64bits_dram(va2pa(cpu_reg.rsp), cpu_pc.rip + sizeof(char) * MAX_INSTRUCTION_CHAR);
+    cpu_write64bits_dram(va2pa(cpu_reg.rsp), cpu_pc.rip + sizeof(char) * MAX_INSTRUCTION_CHAR);
 
     cpu_pc.rip = src;
     // todo 
@@ -710,7 +710,7 @@ static void call_handler(od_t *src_od, od_t *dst_od) {
 }
 
 static void ret_handler(od_t *src_od, od_t *dst_od) {
-    uint64_t ret_addr = read64bits_dram(va2pa(cpu_reg.rsp));
+    uint64_t ret_addr = cpu_read64bits_dram(va2pa(cpu_reg.rsp));
 
     cpu_reg.rsp = cpu_reg.rsp + 8;
 
@@ -805,7 +805,7 @@ static void cmp_handler(od_t *src_od, od_t *dst_od) {
     if (src_od->type == IMM && dst_od->type == MEM_IMM_REG1) {
         // * if dst - src = 0 set ZF = 0
         
-        uint64_t dval = read64bits_dram(va2pa(dst));
+        uint64_t dval = cpu_read64bits_dram(va2pa(dst));
         uint64_t val = dval + (~src + 1);
 
         uint8_t src_sign = (src >> 63) & 0x1;
@@ -874,7 +874,7 @@ void instruction_cycle() {
     char inst_str[MAX_INSTRUCTION_CHAR + 10];
     // * 从' 内存 '中读取代码块的位置
     // * update pc
-    readinst_dram(va2pa(cpu_pc.rip), inst_str);
+    cpu_readinst_dram(va2pa(cpu_pc.rip), inst_str);
 
     debug_printf(DEBUG_INSTRUCTIONCYCLE, "%lx   %s\n", cpu_pc.rip, inst_str);
 
