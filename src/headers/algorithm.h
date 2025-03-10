@@ -117,10 +117,26 @@ void print_array(array_t *arr);
 
 
 
+// * Red-Black Tree
+typedef enum {
+    COLOR_RED,
+    COLOR_BLACK,
+}rb_color_t;
 
 
+typedef struct RB_NODE_STRUCT {
+    // pointers
+    struct RB_NODE_STRUCT *parent;
+    struct RB_NODE_STRUCT *left;
+    struct RB_NODE_STRUCT *right;
 
+    // edge color to parent
+    rb_color_t color;
 
+    // tree node value
+    uint64_t value;
+
+}rb_node_t;
 
 
 

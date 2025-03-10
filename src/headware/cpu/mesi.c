@@ -4,53 +4,48 @@
  * This project is to learn csapp simulator project of yangminz(QEMU)
  */
 
-/* MESI protocol simulator */
-
-#include <stdint.h>
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <assert.h>
 
-
-// cacheline state (MESI)
 typedef enum {
-    MODIFIED,
-    EXCLUSIVE,
-    SHARED,
-    INVALID,
-}state_t;
+    MODIFIED,   // exclusive dirty, global 1
+    EXCLUSIVE,  // exclusive clean, global 1
+    SHARED,     // shared clean, global >= 2
+    INVALID,    // invalid
+} state_t;
 
 typedef struct {
     state_t state;
     int value;
-}cacheline_t;
+}line_t;
 
-#ifndef NUM_PROCESSOR
-#define NUM_PROCESSOR (4)
-#endif
+#define NUM_PROCESSOR (5)
 
-// cache multi-processor
-cacheline_t cache[NUM_PROCESSOR];
+line_t cache[NUM_PROCESSOR];
 
-// mem cache (shared)
 int mem_value = 15213;
 
-int state_count[4];
-
-
-// init and check cache state
 int check_state() {
-    state_count[MODIFIED] = 0;  // M
-    state_count[EXCLUSIVE] = 0; // E
-    state_count[SHARED] = 0;    // S
-    state_count[INVALID] = 0;   // I
+    int m_count = 0;
+    int e_count = 0; 
+    int s_count = 0; 
+    int i_count = 0; 
 
-
-    for (int i = 0; i < NUM_PROCESSOR; i++) {
-        state_count[(int)cache[i].state] += 1;
+    for (int i = 0; i < NUM_PROCESSOR; ++ i) {
+        if (cache[i].state == MODIFIED) {
+            m_count += 1;
+        } else if (cache[i].state == EXCLUSIVE) {
+            e_count += 1;
+        } else if (cache[i].state == SHARED) {
+            s_count += 1;
+        } else if (cache[i].state == INVALID) {
+            i_count += 1;
+        }
     }
 
-    /*  MESI Rules Matrix:
+    /*
         M   E   S   I
     M   X   X   X   O
     E   X   X   X   O
@@ -58,315 +53,347 @@ int check_state() {
     I   O   O   O   O
     */
 
-    // verify MESI protocol
-    if ((state_count[MODIFIED] == 1 && state_count[INVALID] == NUM_PROCESSOR - 1) || (state_count[EXCLUSIVE] == 1 && state_count[INVALID] == NUM_PROCESSOR - 1) || (state_count[SHARED] + state_count[INVALID] == NUM_PROCESSOR))
-        return 1;
-
 #ifdef DEBUG
-    printf("state_count: M %d, E %d, S %d, I %d\n", state_count[MODIFIED], state_count[EXCLUSIVE], state_count[SHARED], state_count[INVALID]);
-    exit(0);
+    printf("M %d\t E %d\t S %d\t I %d\n", m_count, e_count, s_count, i_count);
 #endif
 
-    // verify error
+    if ((m_count == 1 && i_count == (NUM_PROCESSOR - 1)) || 
+        (e_count == 1 && i_count == (NUM_PROCESSOR - 1)) || 
+        (s_count >= 2 && i_count == (NUM_PROCESSOR - s_count)) ||
+        (i_count == NUM_PROCESSOR)) {
+        return 1;
+    }
+
     return 0;
 }
 
-
-// i for core
-int read_cacheline(int i) {
-
+// i - the index of processor
+// read_value - the address of read value
+// int return - if this event is related with target physical address
+int read_cacheline(int i, int *read_value) {
     if (cache[i].state == MODIFIED) {
         // read hit
 #ifdef DEBUG
-        printf("[%d] read hit, value: %d\n", i, cache[i].value);
+        printf("[%d] read hit; dirty value %d\n", i, cache[i].value);
 #endif
+        *read_value = cache[i].value;
         return 1;
     } else if (cache[i].state == EXCLUSIVE) {
+        // read hit
 #ifdef DEBUG
-        printf("[%d] read hit, value: %d\n", i, cache[i].value);
+        printf("[%d] read hit; exclusive clean value %d\n", i, cache[i].value);
 #endif
+        *read_value = cache[i].value;
         return 1;
     } else if (cache[i].state == SHARED) {
+        // read hit
 #ifdef DEBUG
-        printf("[%d] read hit, value: %d\n", i, cache[i].value);
+        printf("[%d] read hit; shared clean value %d\n", i, cache[i].value);
 #endif
+        *read_value = cache[i].value;
         return 1;
-    } else if (cache[i].state == INVALID) {
-
-#ifdef DEBUG
-        printf("\tbus broadcast: [%d] read", i);
-#endif
+    } else {
         // read miss
-        // bus broadcast read miss
-        for (int j = 0; j < NUM_PROCESSOR; j++) {
-            if (j != i) { 
-                // another cache
-                if (cache[j].state == MODIFIED ) {
-                    // write back the dirty data to L3 cache
+        // bus boardcast read miss
+        for (int j = 0; j < NUM_PROCESSOR; ++ j) {
+            if (i != j) {
+                if (cache[j].state == MODIFIED) {
+                    // write back
+                    // there are eaxctly 2 copies in processors
                     mem_value = cache[j].value;
                     cache[j].state = SHARED;
 
-                    // update cache state, sync data
+                    // update read miss cache
                     cache[i].state = SHARED;
                     cache[i].value = cache[j].value;
 
+                    *read_value = cache[i].value;
+
 #ifdef DEBUG
-                    printf("[%d] read miss, modified value: %d\n", i, cache[j].value);
+                    printf("[%d] read miss; [%d] supplies dirty value %d; write back; s_count == 2\n", i, j, cache[i].value);
 #endif
 
                     return 1;
-                } else if (cache[j].state == EXCLUSIVE) { 
+                } else if (cache[j].state == EXCLUSIVE) {
+                    // no memory transaction
                     cache[i].state = SHARED;
                     cache[i].value = cache[j].value;
 
+                    // there are eaxctly 2 copies in processors
                     cache[j].state = SHARED;
 
+                    *read_value = cache[i].value;
+
 #ifdef DEBUG
-                    printf("[%d] read miss, shared value: %d\n", i, cache[j].value);
+                    printf("[%d] read miss; [%d] supplies clean value %d; s_count == 2\n", i, j, cache[i].value);
 #endif
 
                     return 1;
                 } else if (cache[j].state == SHARED) {
-                    // update cache state, sync data
+                    // >= 3
                     cache[i].state = SHARED;
-                    cache[i].value = cache[j].value;    
+                    cache[i].value = cache[j].value;
+
+                    *read_value = cache[i].value;
+
 #ifdef DEBUG
-                    printf("[%d] read miss, [%d] supplies data: %d\n", i, j, cache[j].value);
+                    printf("[%d] read miss; [%d] supplies clean value %d; s_count >= 3\n", i, j, cache[i].value);
 #endif
+
                     return 1;
                 }
             }
         }
 
-        // all others are invalid, update cache state, access L3 cache
+        // all others are invalid
         cache[i].state = EXCLUSIVE;
         cache[i].value = mem_value;
 
+        *read_value = cache[i].value;
+
 #ifdef DEBUG
-        printf("[%d] read miss, exclusive value: %d\n", i, cache[i].value);
+        printf("[%d] read miss; mem supplies clean value %d; e_count == 1\n", i, cache[i].value);
 #endif
+
         return 1;
     }
 
-    return -1;
+    return 0;
 }
 
-
+// i - the index of processor
+// write_value - the value to be written to the physical address
+// int return - if this event is related with target physical address
 int write_cacheline(int i, int write_value) {
-
     if (cache[i].state == MODIFIED) {
         // write hit
-        // why can update cacheline value here?
-        // because we have to update cacheline state to MODIFIED (local data)
         cache[i].value = write_value;
-
+        
 #ifdef DEBUG
-        printf("[%d] write hit, value: %d\n", i, cache[i].value);
-#endif  
+        printf("[%d] write hit; update to value %d\n", i, cache[i].value);
+#endif
+
         return 1;
     } else if (cache[i].state == EXCLUSIVE) {
-        // write hit
+        cache[i].state = MODIFIED;
         cache[i].value = write_value;
-        cache[i].state = MODIFIED;  // dirty data
+        
 #ifdef DEBUG
-        printf("[%d] write hit, value: %d\n", i, cache[i].value);
+        printf("[%d] write hit; update to value %d\n", i, cache[i].value);
 #endif
+
         return 1;
-    } else if (cache[i].state == SHARED) { 
-        // write hit, but need to update other cachelines
-        for (int j = 0; j < NUM_PROCESSOR; j++) {
-            if (j != i && cache[j].state != INVALID) {
-                // another cacheline is invalid
+    } else if (cache[i].state == SHARED) {
+        // boardcast write invalid
+        for (int j = 0; j < NUM_PROCESSOR; j ++) {
+            if (j != i) {
                 cache[j].state = INVALID;
-                cache[j].value = -1;    // mark state as invalidated
-#ifdef DEBUG
-                printf("[%d] write hit, need invalidated cache [%d]\n", i, j);
-#endif
+                cache[j].value = 0;
             }
         }
 
-
+        cache[i].state = MODIFIED;
         cache[i].value = write_value;
-        cache[i].state = MODIFIED;  // dirty data
-
+        
 #ifdef DEBUG
-        printf("[%d] write hit, value: %d\n", i, cache[i].value);
+        printf("[%d] write hit; boardcast invalid; update to value %d\n", i, cache[i].value);
 #endif
+
         return 1;
     } else if (cache[i].state == INVALID) {
-
-#ifdef DEBUG
-        printf("\tbus broadcast: [%d] write", i);
-#endif
-        
-        for (int j = 0; j < NUM_PROCESSOR; j++) { 
-            if (j != i && cache[j].state != INVALID) {
+        for (int j = 0; j < NUM_PROCESSOR; ++ j) {
+            if (i != j) {
                 if (cache[j].state == MODIFIED) {
-                    // exisit only one modified copy, just ivalidate it
-                    cache[j].state = INVALID;
-                    cache[j].value = -1;    // mark state as invalidated
+                    // write back
+                    mem_value = cache[j].value;
 
-                    // update current cache
+                    // invalid old cache line
+                    cache[j].state = INVALID;
+                    cache[j].value = 0;
+
+                    // write allocate
+                    cache[i].value = mem_value;
+
+                    // update to modified
                     cache[i].state = MODIFIED;
                     cache[i].value = write_value;
-
+        
 #ifdef DEBUG
-                    printf("[%d] write miss, ivaildated the modified value: %d\n", i, cache[j].value);
+                    printf("[%d] write miss; boardcast invalid to M; update to value %d\n", i, cache[i].value);
 #endif
                     return 1;
                 } else if (cache[j].state == EXCLUSIVE) {
-                    // exisit only one exclusive copy, just ivalidate it
                     cache[j].state = INVALID;
-                    cache[j].value = -1;    // mark state as invalidated
+                    cache[j].value = 0;
 
-                    // update current cache
                     cache[i].state = MODIFIED;
                     cache[i].value = write_value;
-
+        
 #ifdef DEBUG
-                    printf("[%d] write miss, ivalidated the exclusive value: %d\n", i, cache[j].value);
+                    printf("[%d] write miss; boardcast invalid to E; update to value %d\n", i, cache[i].value);
 #endif
                     return 1;
                 } else if (cache[j].state == SHARED) {
-                    for (int k = 0; k < NUM_PROCESSOR; k++) {
-                        if (k != i && cache[k].state != INVALID) {
+                    for (int k = 0; k < NUM_PROCESSOR; ++ k) {
+                        if (i != k) {
                             cache[k].state = INVALID;
-                            cache[k].value = -1;    // mark state as invalidated
+                            cache[k].value = 0;
                         }
-                    }
+                    } 
 
                     cache[i].state = MODIFIED;
                     cache[i].value = write_value;
-
+                    
 #ifdef DEBUG
-                    printf("[%d] write miss, boadcast writing: %d\n", i, write_value);
+                    printf("[%d] write miss; boardcast invalid to S; update to value %d\n", i, cache[i].value);
 #endif
                     return 1;
                 }
-
             }
         }
 
-        // all others are invalid, update cache state, access L3 cache
-        cache[i].value = mem_value; // ?
-
-        // update cache state, dirty data
+        // all other are invalid
+        // write allcoate
+        cache[i].value = mem_value;
         cache[i].state = MODIFIED;
         cache[i].value = write_value;
+
 #ifdef DEBUG
-        printf("[%d] write miss; no copies in chip; update value in place %d\n", i, write_value);
+        printf("[%d] write miss; all invalid; update to value %d\n", i, cache[i].value);
 #endif
+
         return 1;
     }
 
-    return -1;
+    return 0;
 }
 
-
-// i - the index of current processor
-int evict_cacheline(int i)
-{
-    if (cache[i].state == MODIFIED)
-    {
-        // write back to mem and transit to invalid
+// i - the index of processor
+// int return - if this event is related with target physical address
+int evict_cacheline(int i) {
+    if (cache[i].state == MODIFIED) {
+        // write back
         mem_value = cache[i].value;
+        cache[i].state = INVALID;
+        cache[i].value = 0;
+        
+#ifdef DEBUG
+        printf("[%d] evict; write back value %d\n", i, cache[i].value);
+#endif
 
-        // invalid this cache line since the physical address is no longer in the cache
+        return 1;
+    } else if (cache[i].state == EXCLUSIVE) {
         cache[i].state = INVALID;
         cache[i].value = 0;
+        
 #ifdef DEBUG
-        printf("[%d] evict; write back value %d ** BUS WRITE **\n", i, mem_value);
-#endif 
+        printf("[%d] evict\n", i);
+#endif
+
         return 1;
-    }
-    else if (cache[i].state != INVALID)
-    {
-        // we do not consider invalid evict since the paddr is already detached
-        // for other states: invalid, exclusive, shared
-        // they are all clean, so no bus I/O transaction
+    } else if (cache[i].state == SHARED) {
         cache[i].state = INVALID;
         cache[i].value = 0;
+
+        // may left only one shared to be exclusive
+        int s_count = 0;
+        int last_s = -1;
+
+        for (int j = 0; j < NUM_PROCESSOR; ++ j) {
+            if (cache[j].state == SHARED) {
+                last_s = j;
+                s_count ++;
+            }
+        }
+
+        if (s_count == 1) {
+            cache[last_s].state = EXCLUSIVE;
+        }
+        
 #ifdef DEBUG
-        printf("[%d] evict in place\n", i);
-#endif 
+        printf("[%d] evict\n", i);
+#endif
+
         return 1;
     }
-    
+
+    // evict when cache line is Invalid
+    // not related with target physical address
     return 0;
 }
 
-
-#ifdef DEBUG
-void print_cache()
-{
-    for (int i = 0; i < NUM_PROCESSOR; ++ i)
-    {
+void print_cacheline() {
+    for (int i = 0; i < NUM_PROCESSOR; ++ i) {
         char c;
-        switch (cache[i].state)
-        {
-            case MODIFIED:
-                c = 'M';
-                break;
-            case EXCLUSIVE:
-                c = 'E';
-                break;
-            case SHARED:
-                c = 'S';
-                break;
-            case INVALID:
-                c = 'I';
-                break;
-            default:
-                break;
+
+        switch (cache[i].state) {
+        case MODIFIED:
+            c = 'M';
+            break;
+        case EXCLUSIVE:
+            c = 'E';
+            break;
+        case SHARED:
+            c = 'S';
+            break;
+        case INVALID:
+            c = 'I';
+            break;            
+        default:
+            c = '?';
         }
-
-        printf("\t[%4d]   state %c   value %d\n", i, c, cache[i].value);
+        
+        printf("\t[%d]      state %c        value %d\n", i, c, cache[i].value);
     }
-        printf("                            mem Shared cache copy: %d\n", mem_value);
+        printf("\t                          mem value %d\n", mem_value);
 }
-#endif
 
+int main() {
+    srand(123456);
 
+    int read_value;
 
-int main() { 
-    srand(12345);
-
-    for (int i = 0; i < NUM_PROCESSOR; i++) { 
+    for (int i = 0; i < NUM_PROCESSOR; ++ i) {
         cache[i].state = INVALID;
         cache[i].value = 0;
     }
 
 #ifdef DEBUG
-    print_cache();
-#endif    
+    print_cacheline();
+#endif
 
-    int pc = 0;
-    for (int i = 0; i < 20; ++ i) {
-        int op_case = rand() % 3;
-        int index_proc = rand() % NUM_PROCESSOR;
+    for (int i = 0; i < 100; ++ i) {
+        int core_index = rand() % NUM_PROCESSOR;
+        int op = rand() % 3;
+    
+        int do_print = 0;
 
-        if (op_case == 0) {
-            pc = read_cacheline(index_proc);
-        } else if (op_case == 1) {
-            pc = write_cacheline(index_proc, rand());
-        } else if (op_case == 2) {
-            pc = evict_cacheline(index_proc);
+        if (op == 0) {
+            // printf("read [%d]\n", core_index);
+            do_print = read_cacheline(core_index, &read_value);
+        } else if (op == 1) {
+            // printf("write [%d]\n", core_index);
+            do_print = write_cacheline(core_index, rand() % 1000);
+        } else if (op == 2) {
+            // printf("evict [%d]\n", core_index);
+            do_print = evict_cacheline(core_index);
         }
 
 #ifdef DEBUG
-    if (pc == 1) {
-        print_cache();
-    }
+        if (do_print) {
+            print_cacheline();
+        }
 #endif
 
-    if (check_state() == 0) {
-        printf("Failed\n");
-        return 0;
-    }
-}
+        if (check_state() == 0) {
+            printf("failed\n");
 
-    printf("Pass\n");
-    
+            return 0;
+        }
+    }
+
+    printf("pass\n");
 
     return 0;
+
 }
